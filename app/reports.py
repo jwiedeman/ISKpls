@@ -5,6 +5,43 @@ import matplotlib.pyplot as plt
 from .db import connect
 
 
+def items_summary(limit=50):
+    """Return a DataFrame of item status with last update and unrealized P/L."""
+    con = connect()
+    df = pd.read_sql_query(
+        """
+        SELECT
+          s.type_id,
+          s.ts_utc AS last_updated,
+          s.best_bid,
+          s.best_ask,
+          t.mom_pct,
+          h.qty AS inv_qty,
+          cb.avg_cost,
+          (s.best_bid - cb.avg_cost) * COALESCE(h.qty,0) AS unrealized_pnl,
+          CASE WHEN s.best_bid IS NOT NULL AND s.best_ask IS NOT NULL AND s.best_bid > 0
+               THEN (s.best_ask - s.best_bid) / s.best_bid END AS spread_pct
+        FROM (
+            SELECT ms.* FROM market_snapshots ms
+            JOIN (
+              SELECT type_id, MAX(ts_utc) AS max_ts FROM market_snapshots GROUP BY type_id
+            ) latest ON ms.type_id = latest.type_id AND ms.ts_utc = latest.max_ts
+        ) s
+        LEFT JOIN type_trends t ON t.type_id = s.type_id
+        LEFT JOIN (
+            SELECT type_id, SUM(quantity) AS qty FROM assets GROUP BY type_id
+        ) h ON h.type_id = s.type_id
+        LEFT JOIN inventory_cost_basis cb ON cb.type_id = s.type_id
+        ORDER BY s.ts_utc DESC
+        LIMIT ?
+        """,
+        con,
+        params=(limit,),
+    )
+    con.close()
+    return df
+
+
 def plot_realized_pnl_daily(savepath="realized_pnl_daily.png"):
     con = connect()
     df = pd.read_sql_query(
