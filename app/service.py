@@ -4,6 +4,7 @@ from .settings_service import get_settings, update_settings
 from .recommender import build_recommendations
 from .scheduler import run_tick
 from .db import connect
+from .valuation import compute_portfolio_snapshot
 import json
 
 app = FastAPI()
@@ -71,6 +72,17 @@ def list_recommendations(limit: int = 50, min_net: float = 0.0, min_mom: float =
             }
         )
     return {"results": results}
+
+
+@app.get("/portfolio/nav")
+def portfolio_nav():
+    """Compute and return a portfolio NAV snapshot."""
+    con = connect()
+    try:
+        snapshot = compute_portfolio_snapshot(con)
+    finally:
+        con.close()
+    return snapshot
 
 
 @app.post("/jobs/{name}/run")
