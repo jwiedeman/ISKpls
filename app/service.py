@@ -6,7 +6,7 @@ from .settings_service import get_settings, update_settings, FIELD_META, validat
 from .recommender import build_recommendations
 from .scheduler import run_tick
 from .db import connect
-from .valuation import compute_portfolio_snapshot
+from .valuation import compute_portfolio_snapshot, refresh_type_valuations
 from .esi import get_error_limit_status
 from .auth import get_token, token_status
 from .scheduler_config import get_scheduler_settings, update_scheduler_settings
@@ -290,6 +290,26 @@ def portfolio_nav():
     finally:
         con.close()
     return snapshot
+
+
+@app.post("/valuations/recompute")
+def recompute_valuations():
+    """Refresh type valuations for all known assets and orders."""
+    con = connect()
+    try:
+        cur = con.cursor()
+        ids = [
+            tid
+            for (tid,) in cur.execute(
+                "SELECT DISTINCT type_id FROM assets UNION SELECT DISTINCT type_id FROM char_orders"
+            )
+        ]
+        if ids:
+            refresh_type_valuations(con, sorted(ids))
+        count = len(ids)
+    finally:
+        con.close()
+    return {"count": count}
 
 
 @app.post("/jobs/{name}/run")

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getSettings, updateSettings, getSchedulers, updateSchedulers } from '../api';
+import { getSettings, updateSettings, getSchedulers, updateSchedulers, recomputeValuations } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 
@@ -136,6 +136,23 @@ export default function Settings() {
     }
   }
 
+  async function recompute() {
+    setLoading(true);
+    try {
+      await recomputeValuations();
+      alert('Valuations recomputed');
+      setError('');
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError(String(e));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function saveSchedulers() {
     setLoading(true);
     try {
@@ -185,6 +202,9 @@ export default function Settings() {
           </div>
         ))}
         <button type="submit" disabled={loading}>Save</button>
+        <button type="button" onClick={recompute} disabled={loading} style={{ marginLeft: '0.5em' }}>
+          Recompute valuations
+        </button>
       </form>
 
       <h3>Schedulers</h3>
