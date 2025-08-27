@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { getStatus, runJob, type StatusResp, getWatchlist, getTypeNames } from '../api';
+import { getStatus, runJob, type StatusResp, getWatchlist } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
+import { useTypeNames } from '../TypeNamesContext';
 
 interface JobRec {
   name: string;
@@ -15,7 +16,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [watchlist, setWatchlist] = useState<number[]>([]);
-  const [typeNames, setTypeNames] = useState<Record<number, string>>({});
+  const typeNames = useTypeNames();
 
   async function refresh() {
     setLoading(true);
@@ -26,10 +27,6 @@ export default function Dashboard() {
       const wl = await getWatchlist();
       const ids: number[] = (wl.items || []).map((i: { type_id: number }) => i.type_id);
       setWatchlist(ids);
-      if (ids.length) {
-        const names = await getTypeNames(ids);
-        setTypeNames(names);
-      }
       setError('');
     } catch (e: unknown) {
       if (e instanceof Error) {
