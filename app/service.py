@@ -2,6 +2,7 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
+from contextlib import asynccontextmanager
 from .settings_service import get_settings, update_settings, FIELD_META, validate_settings
 from .recommender import build_recommendations
 from .scheduler import run_tick
@@ -13,19 +14,21 @@ from .scheduler_config import get_scheduler_settings, update_scheduler_settings
 from .type_cache import get_type_name, refresh_type_name_cache
 import json
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Preload the type ID to name mapping."""
+    refresh_type_name_cache()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-def _load_type_cache() -> None:
-    """Preload the type ID to name mapping."""
-    refresh_type_name_cache()
 
 
 @app.get("/healthz")
