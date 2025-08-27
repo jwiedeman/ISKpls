@@ -1,5 +1,6 @@
 from __future__ import annotations
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from .settings_service import get_settings, update_settings, FIELD_META, validate_settings
 from .recommender import build_recommendations
@@ -12,6 +13,18 @@ from .scheduler_config import get_scheduler_settings, update_scheduler_settings
 import json
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/healthz")
+def healthz():
+    """Simple liveness probe."""
+    return {"status": "ok"}
 
 
 @app.get("/status")
