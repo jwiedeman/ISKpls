@@ -9,21 +9,44 @@ interface FieldMeta {
   min?: number;
   max?: number;
   help?: string;
+  step?: number;
+  integer?: boolean;
 }
 
 const FIELDS: Record<string, FieldMeta> = {
-  STATION_ID: { label: 'Station ID', type: 'number', min: 1, help: 'Default station for valuations' },
-  REGION_ID: { label: 'Region ID', type: 'number', min: 1, help: 'Default region for valuations' },
+  STATION_ID: {
+    label: 'Station ID',
+    type: 'number',
+    min: 1,
+    integer: true,
+    step: 1,
+    help: 'Default station for valuations',
+  },
+  REGION_ID: {
+    label: 'Region ID',
+    type: 'number',
+    min: 1,
+    integer: true,
+    step: 1,
+    help: 'Default region for valuations',
+  },
   DATASOURCE: { label: 'Datasource', type: 'text', help: 'EVE data source' },
   VENUE: { label: 'Venue', type: 'text', help: 'Trading venue' },
-  SALES_TAX: { label: 'Sales Tax', type: 'number', min: 0, max: 1, help: '0.05 for 5% sales tax' },
-  BROKER_BUY: { label: 'Broker Fee (Buy)', type: 'number', min: 0, max: 1 },
-  BROKER_SELL: { label: 'Broker Fee (Sell)', type: 'number', min: 0, max: 1 },
-  RELIST_HAIRCUT: { label: 'Relist Haircut', type: 'number', min: 0, max: 1 },
-  MOM_THRESHOLD: { label: 'MoM Threshold', type: 'number', min: 0, max: 1 },
-  MIN_DAYS_TRADED: { label: 'Min Days Traded', type: 'number', min: 0 },
-  MIN_DAILY_VOL: { label: 'Min Daily Volume', type: 'number', min: 0 },
-  SPREAD_BUFFER: { label: 'Spread Buffer', type: 'number', min: 0, max: 1 },
+  SALES_TAX: {
+    label: 'Sales Tax',
+    type: 'number',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    help: '0.05 for 5% sales tax',
+  },
+  BROKER_BUY: { label: 'Broker Fee (Buy)', type: 'number', min: 0, max: 1, step: 0.01 },
+  BROKER_SELL: { label: 'Broker Fee (Sell)', type: 'number', min: 0, max: 1, step: 0.01 },
+  RELIST_HAIRCUT: { label: 'Relist Haircut', type: 'number', min: 0, max: 1, step: 0.01 },
+  MOM_THRESHOLD: { label: 'MoM Threshold', type: 'number', min: 0, max: 1, step: 0.01 },
+  MIN_DAYS_TRADED: { label: 'Min Days Traded', type: 'number', min: 0, integer: true, step: 1 },
+  MIN_DAILY_VOL: { label: 'Min Daily Volume', type: 'number', min: 0, integer: true, step: 1 },
+  SPREAD_BUFFER: { label: 'Spread Buffer', type: 'number', min: 0, max: 1, step: 0.01 },
 };
 
 export default function Settings() {
@@ -62,7 +85,11 @@ export default function Settings() {
     const meta = FIELDS[key];
     let v: unknown = value;
     if (meta.type === 'number') {
-      v = value === '' ? '' : Number(value);
+      if (value === '') {
+        v = '';
+      } else {
+        v = meta.integer ? parseInt(value, 10) : Number(value);
+      }
     }
     setSettings(s => ({ ...s, [key]: v }));
   }
@@ -73,9 +100,13 @@ export default function Settings() {
       const raw = settings[key];
       let val = raw;
       if (meta.type === 'number') {
-        val = Number(raw);
+        val = meta.integer ? parseInt(String(raw), 10) : Number(raw);
         if (isNaN(val as number)) {
           setError(`${meta.label} must be a number`);
+          return;
+        }
+        if (meta.integer && !Number.isInteger(val)) {
+          setError(`${meta.label} must be an integer`);
           return;
         }
       }
@@ -141,7 +172,7 @@ export default function Settings() {
                 type={meta.type === 'number' ? 'number' : 'text'}
                 min={meta.min}
                 max={meta.max}
-                step="0.01"
+                step={meta.step ?? 'any'}
                 value={settings[k] as number | string}
                 onChange={e => handleChange(k, e.target.value)}
               />
