@@ -75,3 +75,18 @@ The service provides endpoints such as:
 - `POST /auth/connect` – initiate the EVE SSO flow
 - Most responses include `type_name` alongside `type_id`
 
+### Frontend UI
+
+The `/ui` directory contains a small React + Tauri interface for interacting
+with the service. To install dependencies and build the static assets:
+
+```bash
+cd ui
+npm install
+npm run lint
+npm run build
+```
+
+`npm run dev` launches a hot-reload development server, while `npx tauri dev`
+starts the desktop shell during development.
+
