@@ -26,6 +26,11 @@ pip install -r requirements.txt
 ```
 
 ### Database Initialization
+
+The API service now ensures the SQLite schema exists on startup. If you need to
+initialize the database manually (for example before running standalone
+scripts) you can do so with:
+
 ```bash
 python -c "from app.db import init_db; init_db()"
 ```
