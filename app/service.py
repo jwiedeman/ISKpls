@@ -1,6 +1,6 @@
 from __future__ import annotations
 from fastapi import FastAPI, HTTPException
-from .settings_service import get_settings, update_settings
+from .settings_service import get_settings, update_settings, FIELD_META, validate_settings
 from .recommender import build_recommendations
 from .scheduler import run_tick
 from .db import connect
@@ -48,10 +48,13 @@ def read_settings():
 
 @app.put("/settings")
 def write_settings(settings: dict):
-    allowed = set(get_settings().keys())
     for key in settings.keys():
-        if key not in allowed:
+        if key not in FIELD_META:
             raise HTTPException(status_code=400, detail=f"Unknown setting {key}")
+    try:
+        validate_settings(settings)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     update_settings(settings)
     return get_settings()
 
