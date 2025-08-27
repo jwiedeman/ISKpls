@@ -2,4 +2,5 @@ fastapi
 httpx
 pandas
 requests
+python-dotenv
 
