@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getOpenOrders, getOrderHistory } from '../api';
+import { getOpenOrders, getOrderHistory, getTypeNames } from '../api';
 
 interface Order {
   order_id: number;
@@ -18,13 +18,21 @@ export default function Orders() {
   const [openOrders, setOpenOrders] = useState<Order[]>([]);
   const [history, setHistory] = useState<Order[]>([]);
   const [error, setError] = useState('');
+  const [typeNames, setTypeNames] = useState<Record<number, string>>({});
 
   async function refresh() {
     try {
       const open = await getOpenOrders();
       const hist = await getOrderHistory();
-      setOpenOrders(open.orders || []);
-      setHistory(hist.orders || []);
+      const openList = open.orders || [];
+      const histList = hist.orders || [];
+      setOpenOrders(openList);
+      setHistory(histList);
+      const ids = Array.from(new Set([...openList, ...histList].map((o: Order) => o.type_id)));
+      if (ids.length) {
+        const names = await getTypeNames(ids);
+        setTypeNames(names);
+      }
       setError('');
     } catch (e: unknown) {
       if (e instanceof Error) {
@@ -50,7 +58,7 @@ export default function Orders() {
         <thead>
           <tr>
             <th>Order ID</th>
-            <th>Type ID</th>
+            <th>Item</th>
             <th>Price</th>
             <th>Filled %</th>
             <th>Escrow</th>
@@ -60,7 +68,7 @@ export default function Orders() {
           {openOrders.map(o => (
             <tr key={o.order_id}>
               <td>{o.order_id}</td>
-              <td>{o.type_id}</td>
+              <td>{typeNames[o.type_id] || o.type_id}</td>
               <td>{o.price.toFixed(2)}</td>
               <td>{(o.fill_pct * 100).toFixed(1)}</td>
               <td>{o.escrow.toFixed(2)}</td>
@@ -74,7 +82,7 @@ export default function Orders() {
         <thead>
           <tr>
             <th>Order ID</th>
-            <th>Type ID</th>
+            <th>Item</th>
             <th>Price</th>
             <th>Filled %</th>
             <th>State</th>
@@ -84,7 +92,7 @@ export default function Orders() {
           {history.map(o => (
             <tr key={o.order_id}>
               <td>{o.order_id}</td>
-              <td>{o.type_id}</td>
+              <td>{typeNames[o.type_id] || o.type_id}</td>
               <td>{o.price.toFixed(2)}</td>
               <td>{(o.fill_pct * 100).toFixed(1)}</td>
               <td>{o.state}</td>

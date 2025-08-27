@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getRecommendations } from '../api';
+import { getRecommendations, getTypeNames } from '../api';
 
 interface Rec {
   type_id: number;
@@ -7,6 +7,7 @@ interface Rec {
   net_pct: number;
   uplift_mom: number;
   daily_capacity: number;
+  details: Record<string, unknown>;
 }
 
 export default function Recommendations() {
@@ -14,11 +15,18 @@ export default function Recommendations() {
   const [minNet, setMinNet] = useState(0);
   const [minMom, setMinMom] = useState(0);
   const [error, setError] = useState('');
+  const [typeNames, setTypeNames] = useState<Record<number, string>>({});
+  const [selected, setSelected] = useState<Rec | null>(null);
 
   async function refresh() {
     try {
       const data = await getRecommendations(50, minNet, minMom);
       setRecs(data.results || []);
+      const ids = Array.from(new Set((data.results || []).map((r: Rec) => r.type_id)));
+      if (ids.length) {
+        const names = await getTypeNames(ids);
+        setTypeNames(names);
+      }
       setError('');
     } catch (e: unknown) {
       if (e instanceof Error) {
@@ -50,23 +58,49 @@ export default function Recommendations() {
       <table>
         <thead>
           <tr>
-            <th>Type ID</th>
+            <th>Item</th>
             <th>Net %</th>
             <th>MoM %</th>
             <th>Daily ISK</th>
+            <th>Explain</th>
           </tr>
         </thead>
         <tbody>
           {recs.map(r => (
             <tr key={r.type_id}>
-              <td>{r.type_id}</td>
+              <td>{typeNames[r.type_id] || r.type_id}</td>
               <td>{(r.net_pct * 100).toFixed(2)}</td>
               <td>{(r.uplift_mom * 100).toFixed(2)}</td>
               <td>{Math.round(r.daily_capacity)}</td>
+              <td>
+                <button onClick={() => setSelected(r)}>Explain</button>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {selected && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div style={{ background: '#fff', padding: '1em', maxWidth: '400px' }}>
+            <h3>{typeNames[selected.type_id] || selected.type_id}</h3>
+            <pre>{JSON.stringify(selected.details, null, 2)}</pre>
+            <button onClick={() => setSelected(null)}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
