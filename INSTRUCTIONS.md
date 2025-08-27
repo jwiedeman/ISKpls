@@ -10,7 +10,7 @@ This guide walks through setting up the VulnHawk Item Service and collecting dat
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install requests pandas matplotlib
+pip install requests pandas matplotlib python-dotenv
 ```
 
 ## Database Initialization
@@ -30,8 +30,8 @@ python -c "from app.scheduler import fill_queue_from_trends, run_tick; fill_queu
 ```
 
 ## Sync Character Data
-Set the environment variables `EVE_CLIENT_ID`, `EVE_CLIENT_SECRET` and
-`CHAR_ID`, then run:
+Provide the environment variables `EVE_CLIENT_ID`, `EVE_CLIENT_SECRET` and
+`CHAR_ID` (either export them or place them in a `.env` file), then run:
 ```bash
 python -m app.run_character_sync
 ```

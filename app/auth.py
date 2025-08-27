@@ -26,7 +26,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Dict
 
 import requests
+from dotenv import load_dotenv
 
+
+load_dotenv()
 
 TOKEN_FILE = "token.json"
 
@@ -38,8 +41,6 @@ CALLBACK_URL = os.environ.get("EVE_CALLBACK_URL", "http://localhost:5000/callbac
 SCOPES = " ".join(
     [
         "esi-wallet.read_character_wallet.v1",
-        "esi-wallet.read_character_journal.v1",
-        "esi-wallet.read_character_transactions.v1",
         "esi-markets.read_character_orders.v1",
         "esi-assets.read_assets.v1",
     ]
