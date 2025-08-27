@@ -3,3 +3,5 @@ eve_trader.sqlite3
 __pycache__/
 *.pyc
 token.json
+ui/node_modules/
+ui/dist/

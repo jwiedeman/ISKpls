@@ -1,6 +1,11 @@
 export const API_BASE = 'http://localhost:8000';
 
-export async function getStatus() {
+export interface StatusResp {
+  jobs: { name: string; ts_utc: string; ok: boolean }[];
+  esi: { error_limit_remain: number; error_limit_reset: number };
+}
+
+export async function getStatus(): Promise<StatusResp> {
   const res = await fetch(`${API_BASE}/status`);
   if (!res.ok) throw new Error('Failed to fetch status');
   return res.json();
