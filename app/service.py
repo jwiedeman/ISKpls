@@ -5,6 +5,7 @@ from .recommender import build_recommendations
 from .scheduler import run_tick
 from .db import connect
 from .valuation import compute_portfolio_snapshot
+from .esi import get_error_limit_status
 import json
 
 app = FastAPI()
@@ -20,7 +21,10 @@ def status():
         ).fetchall()
     finally:
         con.close()
-    return {"jobs": [{"name": n, "ts_utc": t, "ok": bool(o)} for n, t, o in rows]}
+    return {
+        "jobs": [{"name": n, "ts_utc": t, "ok": bool(o)} for n, t, o in rows],
+        "esi": get_error_limit_status(),
+    }
 
 
 @app.get("/settings")

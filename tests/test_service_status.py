@@ -5,13 +5,15 @@ from pathlib import Path
 # Ensure 'app' package importable
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from app import service, db, jobs
+from app import service, db, jobs, esi
 
 
 def test_status_returns_jobs(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.sqlite3")
     db.init_db()
     jobs.record_job("sample", True, {"info": 1})
+    esi.ERROR_LIMIT_REMAIN = 88
+    esi.ERROR_LIMIT_RESET = 17
 
     client = TestClient(service.app)
     resp = client.get("/status")
@@ -20,3 +22,5 @@ def test_status_returns_jobs(tmp_path, monkeypatch):
     assert len(data["jobs"]) == 1
     assert data["jobs"][0]["name"] == "sample"
     assert data["jobs"][0]["ok"] is True
+    assert data["esi"]["error_limit_remain"] == 88
+    assert data["esi"]["error_limit_reset"] == 17
