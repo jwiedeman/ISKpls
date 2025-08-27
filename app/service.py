@@ -56,6 +56,32 @@ def write_settings(settings: dict):
     return get_settings()
 
 
+@app.get("/types/map")
+def types_map(ids: str | None = None):
+    """Return mapping of type_ids to names.
+
+    If ``ids`` query parameter is provided, it should be a comma-separated
+    list of type IDs to look up. Otherwise all known types are returned.
+    """
+    con = connect()
+    try:
+        if ids:
+            id_list = [int(i) for i in ids.split(",") if i]
+            if id_list:
+                placeholders = ",".join("?" for _ in id_list)
+                rows = con.execute(
+                    f"SELECT type_id, name FROM types WHERE type_id IN ({placeholders})",
+                    id_list,
+                ).fetchall()
+            else:
+                rows = []
+        else:
+            rows = con.execute("SELECT type_id, name FROM types").fetchall()
+    finally:
+        con.close()
+    return {tid: name for tid, name in rows}
+
+
 @app.get("/recommendations")
 def list_recommendations(limit: int = 50, min_net: float = 0.0, min_mom: float = 0.0):
     """Return recent recommendations filtered by net spread and MoM uplift."""

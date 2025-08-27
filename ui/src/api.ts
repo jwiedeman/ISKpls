@@ -62,6 +62,18 @@ export async function getPortfolioNav() {
   return res.json();
 }
 
+export async function getTypeNames(ids: number[]): Promise<Record<number, string>> {
+  const params = ids.length ? `?ids=${ids.join(',')}` : '';
+  const res = await fetch(`${API_BASE}/types/map${params}`);
+  if (!res.ok) throw new Error('Failed to fetch type names');
+  const data = await res.json();
+  const result: Record<number, string> = {};
+  for (const [k, v] of Object.entries(data)) {
+    result[Number(k)] = v as string;
+  }
+  return result;
+}
+
 export interface AuthStatus {
   has_token: boolean;
   expires_at: number;
