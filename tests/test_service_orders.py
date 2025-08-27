@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app import service, db
+from app import type_cache
 
 
 def _seed_orders(con):
@@ -23,12 +24,23 @@ def _seed_orders(con):
     con.commit()
 
 
+def _seed_types(con):
+    con.execute(
+        """
+        INSERT INTO types(type_id, name, group_id) VALUES (1, 'Foo', 10)
+        """
+    )
+    con.commit()
+
+
 def test_list_open_orders(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.sqlite3")
     db.init_db()
     con = db.connect()
     try:
+        _seed_types(con)
         _seed_orders(con)
+        type_cache.refresh_type_name_cache()
     finally:
         con.close()
 
@@ -41,3 +53,4 @@ def test_list_open_orders(tmp_path, monkeypatch):
     assert order["order_id"] == 1
     assert order["is_buy"] is True
     assert order["fill_pct"] == 0.5
+    assert order["type_name"] == "Foo"

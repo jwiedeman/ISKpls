@@ -9,6 +9,7 @@ Features:
 - Region type seeding and Jita order snapshots
 - Trend calculations and scheduling helpers
 - Portfolio valuation and P/L plots
+- Cached type names in API responses
 
 ## Getting Started
 
@@ -21,7 +22,7 @@ Features:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install requests pandas matplotlib python-dotenv
+pip install -r requirements.txt
 ```
 
 ### Database Initialization
@@ -72,4 +73,5 @@ The service provides endpoints such as:
 - `POST /jobs/scheduler_tick/run` – process due market snapshots
 - `GET /auth/status` – check whether SSO token is cached
 - `POST /auth/connect` – initiate the EVE SSO flow
+- Most responses include `type_name` alongside `type_id`
 
