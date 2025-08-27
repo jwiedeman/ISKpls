@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getPortfolioNav } from '../api';
+import Spinner from '../Spinner';
+import ErrorBanner from '../ErrorBanner';
 
 interface Snapshot {
   wallet_balance: number;
@@ -14,8 +16,10 @@ interface Snapshot {
 export default function Portfolio() {
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   async function refresh() {
+    setLoading(true);
     try {
       const data = await getPortfolioNav();
       setSnap(data);
@@ -26,6 +30,8 @@ export default function Portfolio() {
       } else {
         setError(String(e));
       }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -36,8 +42,9 @@ export default function Portfolio() {
   return (
     <div>
       <h2>Portfolio</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <button onClick={refresh}>Refresh</button>
+      <ErrorBanner message={error} />
+      {loading && <Spinner />}
+      <button onClick={refresh} disabled={loading}>Refresh</button>
       {snap && (
         <table>
           <tbody>

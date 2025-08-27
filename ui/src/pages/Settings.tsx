@@ -1,12 +1,31 @@
 import { useEffect, useState } from 'react';
 import { getSettings, updateSettings } from '../api';
+import Spinner from '../Spinner';
+import ErrorBanner from '../ErrorBanner';
 
 export default function Settings() {
   const [settings, setSettings] = useState<Record<string, unknown>>({});
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  async function refresh() {
+    setLoading(true);
+    try {
+      const data = await getSettings();
+      setSettings(data);
+      setError('');
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError(String(e));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    getSettings().then(setSettings).catch(e => setError(e.message));
+    refresh();
   }, []);
 
   function handleChange(key: string, value: string) {
@@ -14,22 +33,27 @@ export default function Settings() {
   }
 
   async function save() {
+    setLoading(true);
     try {
       await updateSettings(settings);
       alert('Saved');
+      setError('');
     } catch (e: unknown) {
       if (e instanceof Error) {
         setError(e.message);
       } else {
         setError(String(e));
       }
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
     <div>
       <h2>Settings</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <ErrorBanner message={error} />
+      {loading && <Spinner />}
       <form onSubmit={e => { e.preventDefault(); save(); }}>
         {Object.entries(settings).map(([k, v]) => (
           <div key={k}>
@@ -38,7 +62,7 @@ export default function Settings() {
             </label>
           </div>
         ))}
-        <button type="submit">Save</button>
+        <button type="submit" disabled={loading}>Save</button>
       </form>
     </div>
   );
