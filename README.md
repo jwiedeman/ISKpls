@@ -18,7 +18,7 @@ Features:
    ```bash
    python -m venv .venv
    source .venv/bin/activate
-   pip install requests pandas matplotlib
+   pip install requests pandas matplotlib python-dotenv
    ```
 3. Initialize the database and seed market types:
 
@@ -32,7 +32,7 @@ Features:
    python -c "from app.trends import refresh_trends; refresh_trends()"
    python -c "from app.scheduler import fill_queue_from_trends, run_tick; fill_queue_from_trends(); run_tick()"
    ```
-5. Set the following environment variables:
+5. Provide the following environment variables (either export them or place them in a `.env` file):
 
    - `EVE_CLIENT_ID` and `EVE_CLIENT_SECRET` – from your EVE developer application
    - `CHAR_ID` – your character's ID
