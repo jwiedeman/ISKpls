@@ -30,8 +30,11 @@ python -c "from app.scheduler import fill_queue_from_trends, run_tick; fill_queu
 ```
 
 ## Sync Character Data
-Set `CHAR_ID` and `TOKEN` in `app/run_character_sync.py` then run:
+Set the environment variables `EVE_CLIENT_ID`, `EVE_CLIENT_SECRET` and
+`CHAR_ID`, then run:
 ```bash
 python -m app.run_character_sync
 ```
-This synchronizes wallet, orders, assets and prints a portfolio snapshot.
+The first run will open a browser window to authorize and will cache a refresh
+token in `token.json`.  Subsequent runs refresh automatically.  This
+synchronizes wallet, orders, assets and prints a portfolio snapshot.
