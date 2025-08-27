@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getStatus, runJob, type StatusResp } from '../api';
+import { getStatus, runJob, type StatusResp, getWatchlist, getTypeNames } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 
@@ -14,6 +14,8 @@ export default function Dashboard() {
   const [esi, setEsi] = useState<StatusResp['esi'] | null>(null);
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [watchlist, setWatchlist] = useState<number[]>([]);
+  const [typeNames, setTypeNames] = useState<Record<number, string>>({});
 
   async function refresh() {
     setLoading(true);
@@ -21,6 +23,13 @@ export default function Dashboard() {
       const data = await getStatus();
       setJobs(data.jobs || []);
       setEsi(data.esi);
+      const wl = await getWatchlist();
+      const ids: number[] = (wl.items || []).map((i: { type_id: number }) => i.type_id);
+      setWatchlist(ids);
+      if (ids.length) {
+        const names = await getTypeNames(ids);
+        setTypeNames(names);
+      }
       setError('');
     } catch (e: unknown) {
       if (e instanceof Error) {
@@ -67,6 +76,13 @@ export default function Dashboard() {
       <ul>
         {jobs.map(j => (
           <li key={j.name + j.ts_utc}>{j.name} @ {j.ts_utc} - {j.ok ? 'OK' : 'Fail'}</li>
+        ))}
+      </ul>
+
+      <h3>Watchlist</h3>
+      <ul>
+        {watchlist.map(id => (
+          <li key={id}>{typeNames[id] || id}</li>
         ))}
       </ul>
     </div>

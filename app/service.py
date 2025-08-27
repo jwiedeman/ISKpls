@@ -1,5 +1,6 @@
 from __future__ import annotations
 from fastapi import FastAPI, HTTPException
+from datetime import datetime
 from .settings_service import get_settings, update_settings, FIELD_META, validate_settings
 from .recommender import build_recommendations
 from .scheduler import run_tick
@@ -97,6 +98,46 @@ def types_map(ids: str | None = None):
     finally:
         con.close()
     return {tid: name for tid, name in rows}
+
+
+@app.get("/watchlist")
+def get_watchlist():
+    """Return all watchlisted type IDs."""
+    con = connect()
+    try:
+        rows = con.execute(
+            "SELECT type_id, added_ts, note FROM watchlist ORDER BY added_ts DESC"
+        ).fetchall()
+    finally:
+        con.close()
+    return {"items": [{"type_id": tid, "added_ts": ts, "note": note} for tid, ts, note in rows]}
+
+
+@app.post("/watchlist/{type_id}")
+def add_watchlist(type_id: int, note: str | None = None):
+    """Add a type to the watchlist."""
+    con = connect()
+    try:
+        con.execute(
+            "INSERT OR REPLACE INTO watchlist(type_id, added_ts, note) VALUES(?, ?, ?)",
+            (type_id, datetime.utcnow().isoformat(), note),
+        )
+        con.commit()
+    finally:
+        con.close()
+    return {"status": "ok"}
+
+
+@app.delete("/watchlist/{type_id}")
+def remove_watchlist(type_id: int):
+    """Remove a type from the watchlist."""
+    con = connect()
+    try:
+        con.execute("DELETE FROM watchlist WHERE type_id=?", (type_id,))
+        con.commit()
+    finally:
+        con.close()
+    return {"status": "ok"}
 
 
 @app.get("/recommendations")
