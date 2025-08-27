@@ -7,6 +7,7 @@ from .db import connect
 from .valuation import compute_portfolio_snapshot
 from .esi import get_error_limit_status
 from .auth import get_token, token_status
+from .scheduler_config import get_scheduler_settings, update_scheduler_settings
 import json
 
 app = FastAPI()
@@ -57,6 +58,19 @@ def write_settings(settings: dict):
         raise HTTPException(status_code=400, detail=str(exc))
     update_settings(settings)
     return get_settings()
+
+
+@app.get("/schedulers")
+def read_schedulers():
+    """Return scheduler job configuration."""
+    return get_scheduler_settings()
+
+
+@app.put("/schedulers")
+def write_schedulers(settings: dict):
+    """Update scheduler job configuration."""
+    update_scheduler_settings(settings)
+    return get_scheduler_settings()
 
 
 @app.get("/types/map")

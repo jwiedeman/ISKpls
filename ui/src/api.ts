@@ -74,6 +74,22 @@ export async function getTypeNames(ids: number[]): Promise<Record<number, string
   return result;
 }
 
+export async function getSchedulers() {
+  const res = await fetch(`${API_BASE}/schedulers`);
+  if (!res.ok) throw new Error('Failed to fetch schedulers');
+  return res.json();
+}
+
+export async function updateSchedulers(settings: Record<string, { enabled: boolean; interval: number }>) {
+  const res = await fetch(`${API_BASE}/schedulers`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  });
+  if (!res.ok) throw new Error('Failed to update schedulers');
+  return res.json();
+}
+
 export interface AuthStatus {
   has_token: boolean;
   expires_at: number;

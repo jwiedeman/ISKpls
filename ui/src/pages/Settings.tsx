@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getSettings, updateSettings } from '../api';
+import { getSettings, updateSettings, getSchedulers, updateSchedulers } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 
@@ -30,6 +30,7 @@ export default function Settings() {
   const [settings, setSettings] = useState<Record<string, unknown>>({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [schedulers, setSchedulers] = useState<Record<string, { enabled: boolean; interval: number }>>({});
   async function refresh() {
     setLoading(true);
     try {
@@ -39,6 +40,8 @@ export default function Settings() {
         subset[key] = data[key];
       }
       setSettings(subset);
+      const sched = await getSchedulers();
+      setSchedulers(sched);
       setError('');
     } catch (e: unknown) {
       if (e instanceof Error) {
@@ -102,6 +105,23 @@ export default function Settings() {
     }
   }
 
+  async function saveSchedulers() {
+    setLoading(true);
+    try {
+      await updateSchedulers(schedulers);
+      alert('Saved schedulers');
+      setError('');
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError(String(e));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div>
       <h2>Settings</h2>
@@ -135,6 +155,31 @@ export default function Settings() {
         ))}
         <button type="submit" disabled={loading}>Save</button>
       </form>
+
+      <h3>Schedulers</h3>
+      {Object.entries(schedulers).map(([name, cfg]) => (
+        <div key={name} style={{ marginBottom: '0.5em' }}>
+          <label>
+            <input
+              type="checkbox"
+              checked={cfg.enabled}
+              onChange={e =>
+                setSchedulers(s => ({ ...s, [name]: { ...cfg, enabled: e.target.checked } }))
+              }
+            />
+            {` ${name}`}
+          </label>
+          <input
+            type="number"
+            value={cfg.interval}
+            style={{ marginLeft: '0.5em' }}
+            onChange={e =>
+              setSchedulers(s => ({ ...s, [name]: { ...cfg, interval: Number(e.target.value) } }))
+            }
+          />
+        </div>
+      ))}
+      <button onClick={saveSchedulers} disabled={loading}>Save Schedulers</button>
     </div>
   );
 }
