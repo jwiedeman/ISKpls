@@ -16,8 +16,12 @@ export default function Dashboard() {
       const data = await getStatus();
       setJobs(data.jobs || []);
       setError('');
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError(String(e));
+      }
     }
   }
 
