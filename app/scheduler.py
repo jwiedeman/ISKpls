@@ -1,8 +1,11 @@
 import time
+import logging
 from .db import connect
 from .jita_snapshots import refresh_one
 from .trends import compute_mom, region_history
 from .config import REGION_ID
+
+logger = logging.getLogger(__name__)
 
 
 TIERS = {"A": 90, "B": 240, "C": 360, "D": 1440}
@@ -19,6 +22,7 @@ def classify_tier(vol):
 
 
 def fill_queue_from_trends(max_types=500):
+    logger.info("Filling queue from trends")
     con = connect()
     rows = con.execute(
         "SELECT type_id, vol_30d_avg FROM type_trends ORDER BY vol_30d_avg DESC LIMIT ?",
@@ -36,9 +40,11 @@ def fill_queue_from_trends(max_types=500):
         )
     con.commit()
     con.close()
+    logger.info("Queue filled for %s types", len(rows))
 
 
 def run_tick(max_calls=200):
+    logger.info("Running scheduler tick")
     con = connect()
     due = con.execute(
         """
@@ -49,7 +55,9 @@ def run_tick(max_calls=200):
         """,
         (max_calls,),
     ).fetchall()
+    logger.info("%s types due for refresh", len(due))
     for (tid,) in due:
+        logger.info("Refreshing %s", tid)
         refresh_one(con, tid)
         con.commit()
         time.sleep(0.2)

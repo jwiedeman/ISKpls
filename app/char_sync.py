@@ -1,17 +1,26 @@
 from datetime import datetime
+import logging
 from .esi import BASE, get, paged
 from .db import connect
 from .config import DATASOURCE
 
+logger = logging.getLogger(__name__)
+
 
 def sync_wallet_balance(con, char_id, token):
     url = f"{BASE}/characters/{char_id}/wallet/"
+    logger.info("Syncing wallet balance")
     data, hdrs, code = get(url, params={"datasource": DATASOURCE}, token=token)
     if code == 304:
+        logger.info("Wallet balance not modified")
         return
     ts = datetime.utcnow().isoformat()
-    con.execute("INSERT OR REPLACE INTO wallet_snapshots (ts_utc, balance) VALUES (?, ?)", (ts, float(data)))
+    con.execute(
+        "INSERT OR REPLACE INTO wallet_snapshots (ts_utc, balance) VALUES (?, ?)",
+        (ts, float(data)),
+    )
     con.commit()
+    logger.info("Wallet balance updated")
 
 
 def sync_wallet_journal(con, char_id, token, from_id=None):
@@ -20,8 +29,10 @@ def sync_wallet_journal(con, char_id, token, from_id=None):
     while True:
         if from_id:
             params["from_id"] = from_id
+        logger.info("Fetching wallet journal from_id=%s", from_id)
         data, hdrs, _ = get(url, params=params, token=token)
         if not data:
+            logger.info("Wallet journal complete")
             break
         for row in data:
             con.execute(
@@ -53,8 +64,10 @@ def sync_wallet_transactions(con, char_id, token, from_id=None):
     while True:
         if from_id:
             params["from_id"] = from_id
+        logger.info("Fetching wallet transactions from_id=%s", from_id)
         data, hdrs, _ = get(url, params=params, token=token)
         if not data:
+            logger.info("Wallet transactions complete")
             break
         for row in data:
             con.execute(
@@ -82,6 +95,7 @@ def sync_wallet_transactions(con, char_id, token, from_id=None):
 def sync_open_orders(con, char_id, token):
     url = f"{BASE}/characters/{char_id}/orders/"
     orders = []
+    logger.info("Fetching open orders")
     for o in paged(url, params={"datasource": DATASOURCE}, token=token):
         orders.append(o)
         con.execute(
@@ -112,14 +126,17 @@ def sync_open_orders(con, char_id, token):
         "UPDATE char_orders SET state='finished' WHERE state='open' AND last_seen < datetime('now','-2 hour')"
     )
     con.commit()
+    logger.info("Open orders synced: %s orders", len(orders))
 
 
 def sync_order_history(con, char_id, token, page_limit=10):
     url = f"{BASE}/characters/{char_id}/orders/history/"
     page = 1
     while page <= page_limit:
+        logger.info("Fetching order history page %s", page)
         data, hdrs, _ = get(url, params={"datasource": DATASOURCE, "page": page}, token=token)
         if not data:
+            logger.info("Order history complete")
             break
         for o in data:
             con.execute(
@@ -155,6 +172,8 @@ def sync_order_history(con, char_id, token, page_limit=10):
 
 def sync_assets(con, char_id, token):
     url = f"{BASE}/characters/{char_id}/assets/"
+    logger.info("Fetching assets")
+    count = 0
     for row in paged(url, params={"datasource": DATASOURCE}, token=token):
         con.execute(
             """
@@ -173,4 +192,6 @@ def sync_assets(con, char_id, token):
                 datetime.utcnow().isoformat(),
             ),
         )
+        count += 1
     con.commit()
+    logger.info("Assets synced: %s", count)
