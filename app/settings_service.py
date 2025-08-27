@@ -45,6 +45,8 @@ def validate_settings(updates: Dict[str, Any]) -> None:
             raise ValueError(f"Unknown setting {key}")
         expected = meta.get("type")
         if expected is int:
+            if isinstance(value, float) and not value.is_integer():
+                raise ValueError(f"{key} must be an integer")
             try:
                 value = int(value)
             except (TypeError, ValueError):
@@ -60,6 +62,8 @@ def validate_settings(updates: Dict[str, Any]) -> None:
             raise ValueError(f"{key} must be >= {meta['min']}")
         if "max" in meta and value > meta["max"]:
             raise ValueError(f"{key} must be <= {meta['max']}")
+        # Persist coerced value back into the dict for downstream use
+        updates[key] = value
 
 
 def _coerce(key: str, value: str) -> Any:
