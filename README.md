@@ -53,3 +53,21 @@ The first run opens a browser window to authorize and caches a refresh token in
 orders and assets while printing a portfolio snapshot.
 
 Run `python -m py_compile $(git ls-files '*.py')` to verify syntax.
+
+### Local API Service
+With the database initialized you can launch a small FastAPI service that exposes
+status, settings and job triggers.
+
+```bash
+pip install fastapi uvicorn
+uvicorn app.service:app --reload
+```
+
+The service provides endpoints such as:
+
+- `GET /status` – recent job history
+- `GET /settings` – current configuration with defaults
+- `PUT /settings` – update configuration values
+- `POST /jobs/recommendations/run` – rebuild recommendation table
+- `POST /jobs/scheduler_tick/run` – process due market snapshots
+
