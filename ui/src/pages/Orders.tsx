@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getOpenOrders, getOrderHistory, getTypeNames } from '../api';
+import Spinner from '../Spinner';
+import ErrorBanner from '../ErrorBanner';
 
 interface Order {
   order_id: number;
@@ -18,9 +20,11 @@ export default function Orders() {
   const [openOrders, setOpenOrders] = useState<Order[]>([]);
   const [history, setHistory] = useState<Order[]>([]);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [typeNames, setTypeNames] = useState<Record<number, string>>({});
 
   async function refresh() {
+    setLoading(true);
     try {
       const open = await getOpenOrders();
       const hist = await getOrderHistory();
@@ -40,6 +44,8 @@ export default function Orders() {
       } else {
         setError(String(e));
       }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -50,8 +56,9 @@ export default function Orders() {
   return (
     <div>
       <h2>Orders</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <button onClick={refresh}>Refresh</button>
+      <ErrorBanner message={error} />
+      {loading && <Spinner />}
+      <button onClick={refresh} disabled={loading}>Refresh</button>
 
       <h3>Open Orders</h3>
       <table>

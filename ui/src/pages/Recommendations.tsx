@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getRecommendations, getTypeNames } from '../api';
+import Spinner from '../Spinner';
+import ErrorBanner from '../ErrorBanner';
 
 interface Rec {
   type_id: number;
@@ -15,14 +17,18 @@ export default function Recommendations() {
   const [minNet, setMinNet] = useState(0);
   const [minMom, setMinMom] = useState(0);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [typeNames, setTypeNames] = useState<Record<number, string>>({});
   const [selected, setSelected] = useState<Rec | null>(null);
 
   async function refresh() {
+    setLoading(true);
     try {
       const data = await getRecommendations(50, minNet, minMom);
       setRecs(data.results || []);
-      const ids = Array.from(new Set((data.results || []).map((r: Rec) => r.type_id)));
+      const ids: number[] = Array.from(
+        new Set((data.results || []).map((r: Rec) => r.type_id))
+      );
       if (ids.length) {
         const names = await getTypeNames(ids);
         setTypeNames(names);
@@ -34,6 +40,8 @@ export default function Recommendations() {
       } else {
         setError(String(e));
       }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -45,7 +53,8 @@ export default function Recommendations() {
   return (
     <div>
       <h2>Recommendations</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <ErrorBanner message={error} />
+      {loading && <Spinner />}
       <div>
         <label>
           Min Net %: <input type="number" value={minNet} onChange={e => setMinNet(Number(e.target.value))} />
@@ -53,7 +62,7 @@ export default function Recommendations() {
         <label style={{ marginLeft: '1em' }}>
           Min MoM %: <input type="number" value={minMom} onChange={e => setMinMom(Number(e.target.value))} />
         </label>
-        <button style={{ marginLeft: '1em' }} onClick={refresh}>Refresh</button>
+        <button style={{ marginLeft: '1em' }} onClick={refresh} disabled={loading}>Refresh</button>
       </div>
       <table>
         <thead>
