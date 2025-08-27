@@ -50,3 +50,9 @@ export async function getOrderHistory(limit = 100) {
   if (!res.ok) throw new Error('Failed to fetch order history');
   return res.json();
 }
+
+export async function getPortfolioNav() {
+  const res = await fetch(`${API_BASE}/portfolio/nav`);
+  if (!res.ok) throw new Error('Failed to fetch portfolio NAV');
+  return res.json();
+}
