@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { getRecommendations, getTypeNames, getWatchlist, addWatchlist, removeWatchlist } from '../api';
+import { getRecommendations, getWatchlist, addWatchlist, removeWatchlist } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
+import { useTypeNames } from '../TypeNamesContext';
 
 interface Rec {
   type_id: number;
@@ -18,7 +19,7 @@ export default function Recommendations() {
   const [minMom, setMinMom] = useState(0);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [typeNames, setTypeNames] = useState<Record<number, string>>({});
+  const typeNames = useTypeNames();
   const [selected, setSelected] = useState<Rec | null>(null);
   const [watchlist, setWatchlist] = useState<Set<number>>(new Set());
 
@@ -27,13 +28,6 @@ export default function Recommendations() {
     try {
       const data = await getRecommendations(50, minNet, minMom);
       setRecs(data.results || []);
-      const ids: number[] = Array.from(
-        new Set((data.results || []).map((r: Rec) => r.type_id))
-      );
-      if (ids.length) {
-        const names = await getTypeNames(ids);
-        setTypeNames(names);
-      }
       const wl = await getWatchlist();
       setWatchlist(new Set((wl.items || []).map((i: { type_id: number }) => i.type_id)));
       setError('');

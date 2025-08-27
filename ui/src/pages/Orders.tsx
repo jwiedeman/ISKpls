@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { getOpenOrders, getOrderHistory, getTypeNames } from '../api';
+import { getOpenOrders, getOrderHistory } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
+import { useTypeNames } from '../TypeNamesContext';
 
 interface Order {
   order_id: number;
@@ -21,7 +22,7 @@ export default function Orders() {
   const [history, setHistory] = useState<Order[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [typeNames, setTypeNames] = useState<Record<number, string>>({});
+  const typeNames = useTypeNames();
 
   async function refresh() {
     setLoading(true);
@@ -32,11 +33,6 @@ export default function Orders() {
       const histList = hist.orders || [];
       setOpenOrders(openList);
       setHistory(histList);
-      const ids = Array.from(new Set([...openList, ...histList].map((o: Order) => o.type_id)));
-      if (ids.length) {
-        const names = await getTypeNames(ids);
-        setTypeNames(names);
-      }
       setError('');
     } catch (e: unknown) {
       if (e instanceof Error) {
