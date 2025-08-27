@@ -70,4 +70,6 @@ The service provides endpoints such as:
 - `PUT /settings` – update configuration values
 - `POST /jobs/recommendations/run` – rebuild recommendation table
 - `POST /jobs/scheduler_tick/run` – process due market snapshots
+- `GET /auth/status` – check whether SSO token is cached
+- `POST /auth/connect` – initiate the EVE SSO flow
 

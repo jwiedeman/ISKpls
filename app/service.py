@@ -6,6 +6,7 @@ from .scheduler import run_tick
 from .db import connect
 from .valuation import compute_portfolio_snapshot
 from .esi import get_error_limit_status
+from .auth import get_token, token_status
 import json
 
 app = FastAPI()
@@ -25,6 +26,19 @@ def status():
         "jobs": [{"name": n, "ts_utc": t, "ok": bool(o)} for n, t, o in rows],
         "esi": get_error_limit_status(),
     }
+
+
+@app.get("/auth/status")
+def auth_status():
+    """Report whether a cached SSO token is available."""
+    return token_status()
+
+
+@app.post("/auth/connect")
+def auth_connect():
+    """Initiate the SSO flow to obtain a token if missing or expired."""
+    get_token()
+    return {"status": "ok"}
 
 
 @app.get("/settings")

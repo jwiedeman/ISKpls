@@ -61,3 +61,20 @@ export async function getPortfolioNav() {
   if (!res.ok) throw new Error('Failed to fetch portfolio NAV');
   return res.json();
 }
+
+export interface AuthStatus {
+  has_token: boolean;
+  expires_at: number;
+}
+
+export async function getAuthStatus(): Promise<AuthStatus> {
+  const res = await fetch(`${API_BASE}/auth/status`);
+  if (!res.ok) throw new Error('Failed to fetch auth status');
+  return res.json();
+}
+
+export async function connectAuth() {
+  const res = await fetch(`${API_BASE}/auth/connect`, { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to start auth');
+  return res.json();
+}
