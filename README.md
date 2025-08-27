@@ -60,6 +60,12 @@ orders and assets while printing a portfolio snapshot.
 
 Run `python -m py_compile $(git ls-files '*.py')` to verify syntax.
 
+Run the unit tests to ensure everything works as expected:
+
+```bash
+pytest
+```
+
 ### Local API Service
 With the database initialized you can launch a small FastAPI service that exposes
 status, settings and job triggers.
