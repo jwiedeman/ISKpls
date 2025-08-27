@@ -38,3 +38,15 @@ export async function getRecommendations(limit = 50, minNet = 0, minMom = 0) {
   if (!res.ok) throw new Error('Failed to fetch recommendations');
   return res.json();
 }
+
+export async function getOpenOrders(limit = 100) {
+  const res = await fetch(`${API_BASE}/orders/open?limit=${limit}`);
+  if (!res.ok) throw new Error('Failed to fetch open orders');
+  return res.json();
+}
+
+export async function getOrderHistory(limit = 100) {
+  const res = await fetch(`${API_BASE}/orders/history?limit=${limit}`);
+  if (!res.ok) throw new Error('Failed to fetch order history');
+  return res.json();
+}
