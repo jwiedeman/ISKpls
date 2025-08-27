@@ -8,6 +8,7 @@ from .char_sync import (
     sync_assets,
 )
 from .valuation import refresh_type_valuations, compute_portfolio_snapshot
+from .pnl import pnl_fifo
 
 CHAR_ID = 0  # replace with your character id
 TOKEN = ""  # replace with access token
@@ -21,6 +22,7 @@ def main():
     sync_open_orders(con, CHAR_ID, TOKEN)
     sync_order_history(con, CHAR_ID, TOKEN)
     sync_assets(con, CHAR_ID, TOKEN)
+    pnl_fifo()
     cur = con.cursor()
     type_ids = set(
         t

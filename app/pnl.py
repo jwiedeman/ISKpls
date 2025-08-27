@@ -119,6 +119,19 @@ def pnl_fifo():
             """,
             row,
         )
+
+    con.execute("DELETE FROM inventory_cost_basis")
+    for type_id, lots in inventory.items():
+        total_qty = sum(q for q, _ in lots)
+        if total_qty > 0:
+            avg_cost = sum(q * p for q, p in lots) / total_qty
+            con.execute(
+                """
+                INSERT INTO inventory_cost_basis(type_id, remaining_qty, avg_cost, updated)
+                VALUES (?,?,?,?)
+                """,
+                (type_id, total_qty, avg_cost, datetime.utcnow().isoformat()),
+            )
     con.commit()
     con.close()
     return realized

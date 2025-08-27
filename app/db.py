@@ -144,6 +144,13 @@ CREATE TABLE IF NOT EXISTS realized_trades (
   broker_fee REAL NOT NULL,
   pnl REAL NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS inventory_cost_basis (
+  type_id INTEGER PRIMARY KEY,
+  remaining_qty INTEGER,
+  avg_cost REAL,
+  updated TEXT
+);
 """
 
 
