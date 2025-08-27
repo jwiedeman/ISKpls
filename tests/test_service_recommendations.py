@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app import service, db
+from app import type_cache
 
 
 def _seed_recommendations(con):
@@ -20,13 +21,25 @@ def _seed_recommendations(con):
     con.commit()
 
 
+def _seed_types(con):
+    con.execute(
+        """
+        INSERT INTO types(type_id, name, group_id)
+        VALUES (1, 'Foo', 10), (2, 'Bar', 20)
+        """
+    )
+    con.commit()
+
+
 def test_list_recommendations_filters(tmp_path, monkeypatch):
     # Redirect DB to temporary file and seed with sample data
     monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.sqlite3")
     db.init_db()
     con = db.connect()
     try:
+        _seed_types(con)
         _seed_recommendations(con)
+        type_cache.refresh_type_name_cache()
     finally:
         con.close()
 
@@ -36,7 +49,9 @@ def test_list_recommendations_filters(tmp_path, monkeypatch):
     data = resp.json()
     # Only one record meets the net filter
     assert len(data["results"]) == 1
-    assert data["results"][0]["type_id"] == 1
+    rec = data["results"][0]
+    assert rec["type_id"] == 1
+    assert rec["type_name"] == "Foo"
 
     # Filter by MoM uplift should exclude both when threshold high
     resp = client.get("/recommendations", params={"min_mom": 0.35})

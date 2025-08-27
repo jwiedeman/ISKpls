@@ -10,6 +10,7 @@ from .valuation import compute_portfolio_snapshot, refresh_type_valuations
 from .esi import get_error_limit_status
 from .auth import get_token, token_status
 from .scheduler_config import get_scheduler_settings, update_scheduler_settings
+from .type_cache import get_type_name, refresh_type_name_cache
 import json
 
 app = FastAPI()
@@ -19,6 +20,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def _load_type_cache() -> None:
+    """Preload the type ID to name mapping."""
+    refresh_type_name_cache()
 
 
 @app.get("/healthz")
@@ -115,15 +122,25 @@ def types_map(ids: str | None = None):
 
 @app.get("/watchlist")
 def get_watchlist():
-    """Return all watchlisted type IDs."""
+    """Return all watchlisted type IDs with cached names."""
     con = connect()
     try:
         rows = con.execute(
-            "SELECT type_id, added_ts, note FROM watchlist ORDER BY added_ts DESC"
+            "SELECT type_id, added_ts, note FROM watchlist ORDER BY added_ts DESC",
         ).fetchall()
     finally:
         con.close()
-    return {"items": [{"type_id": tid, "added_ts": ts, "note": note} for tid, ts, note in rows]}
+    return {
+        "items": [
+            {
+                "type_id": tid,
+                "type_name": get_type_name(tid),
+                "added_ts": ts,
+                "note": note,
+            }
+            for tid, ts, note in rows
+        ]
+    }
 
 
 @app.post("/watchlist/{type_id}")
@@ -179,6 +196,7 @@ def list_recommendations(limit: int = 50, min_net: float = 0.0, min_mom: float =
         results.append(
             {
                 "type_id": type_id,
+                "type_name": get_type_name(type_id),
                 "ts_utc": ts,
                 "net_pct": net,
                 "uplift_mom": mom,
@@ -223,6 +241,7 @@ def list_open_orders(limit: int = 100):
                 "order_id": order_id,
                 "is_buy": bool(is_buy),
                 "type_id": type_id,
+                "type_name": get_type_name(type_id),
                 "price": price,
                 "volume_total": vol_total,
                 "volume_remain": vol_remain,
@@ -269,6 +288,7 @@ def list_order_history(limit: int = 100):
                 "order_id": order_id,
                 "is_buy": bool(is_buy),
                 "type_id": type_id,
+                "type_name": get_type_name(type_id),
                 "price": price,
                 "volume_total": vol_total,
                 "volume_remain": vol_remain,
