@@ -62,6 +62,12 @@ export async function getPortfolioNav() {
   return res.json();
 }
 
+export async function recomputeValuations() {
+  const res = await fetch(`${API_BASE}/valuations/recompute`, { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to recompute valuations');
+  return res.json();
+}
+
 export async function getTypeNames(ids: number[]): Promise<Record<number, string>> {
   const params = ids.length ? `?ids=${ids.join(',')}` : '';
   const res = await fetch(`${API_BASE}/types/map${params}`);
