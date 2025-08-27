@@ -119,6 +119,53 @@ def list_open_orders(limit: int = 100):
     return {"orders": orders}
 
 
+@app.get("/orders/history")
+def list_order_history(limit: int = 100):
+    """Return recently closed character orders with fill percentage and state."""
+    con = connect()
+    try:
+        rows = con.execute(
+            """
+            SELECT order_id, is_buy, type_id, price, volume_total, volume_remain, issued, state, escrow
+            FROM char_orders
+            WHERE state != 'open'
+            ORDER BY issued DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    finally:
+        con.close()
+    orders = []
+    for (
+        order_id,
+        is_buy,
+        type_id,
+        price,
+        vol_total,
+        vol_remain,
+        issued,
+        state,
+        escrow,
+    ) in rows:
+        fill_pct = (vol_total - vol_remain) / vol_total if vol_total else 0.0
+        orders.append(
+            {
+                "order_id": order_id,
+                "is_buy": bool(is_buy),
+                "type_id": type_id,
+                "price": price,
+                "volume_total": vol_total,
+                "volume_remain": vol_remain,
+                "fill_pct": fill_pct,
+                "issued": issued,
+                "state": state,
+                "escrow": escrow,
+            }
+        )
+    return {"orders": orders}
+
+
 @app.get("/portfolio/nav")
 def portfolio_nav():
     """Compute and return a portfolio NAV snapshot."""
