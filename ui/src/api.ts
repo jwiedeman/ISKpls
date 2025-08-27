@@ -90,6 +90,24 @@ export async function updateSchedulers(settings: Record<string, { enabled: boole
   return res.json();
 }
 
+export async function getWatchlist() {
+  const res = await fetch(`${API_BASE}/watchlist`);
+  if (!res.ok) throw new Error('Failed to fetch watchlist');
+  return res.json();
+}
+
+export async function addWatchlist(typeId: number) {
+  const res = await fetch(`${API_BASE}/watchlist/${typeId}`, { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to add watchlist item');
+  return res.json();
+}
+
+export async function removeWatchlist(typeId: number) {
+  const res = await fetch(`${API_BASE}/watchlist/${typeId}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to remove watchlist item');
+  return res.json();
+}
+
 export interface AuthStatus {
   has_token: boolean;
   expires_at: number;

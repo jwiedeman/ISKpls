@@ -162,6 +162,12 @@ CREATE TABLE IF NOT EXISTS recommendations (
   PRIMARY KEY (type_id, ts_utc)
 );
 
+CREATE TABLE IF NOT EXISTS watchlist (
+  type_id INTEGER PRIMARY KEY,
+  added_ts TEXT NOT NULL,
+  note TEXT
+);
+
 CREATE TABLE IF NOT EXISTS jobs_history (
   name TEXT NOT NULL,
   ts_utc TEXT NOT NULL,

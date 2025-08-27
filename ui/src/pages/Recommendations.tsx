@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getRecommendations, getTypeNames } from '../api';
+import { getRecommendations, getTypeNames, getWatchlist, addWatchlist, removeWatchlist } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 
@@ -20,6 +20,7 @@ export default function Recommendations() {
   const [loading, setLoading] = useState(false);
   const [typeNames, setTypeNames] = useState<Record<number, string>>({});
   const [selected, setSelected] = useState<Rec | null>(null);
+  const [watchlist, setWatchlist] = useState<Set<number>>(new Set());
 
   async function refresh() {
     setLoading(true);
@@ -33,6 +34,8 @@ export default function Recommendations() {
         const names = await getTypeNames(ids);
         setTypeNames(names);
       }
+      const wl = await getWatchlist();
+      setWatchlist(new Set((wl.items || []).map((i: { type_id: number }) => i.type_id)));
       setError('');
     } catch (e: unknown) {
       if (e instanceof Error) {
@@ -42,6 +45,24 @@ export default function Recommendations() {
       }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function toggleWatchlist(id: number) {
+    try {
+      if (watchlist.has(id)) {
+        await removeWatchlist(id);
+        setWatchlist(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      } else {
+        await addWatchlist(id);
+        setWatchlist(prev => new Set(prev).add(id));
+      }
+    } catch {
+      // ignore errors
     }
   }
 
@@ -67,6 +88,7 @@ export default function Recommendations() {
       <table>
         <thead>
           <tr>
+            <th>★</th>
             <th>Item</th>
             <th>Net %</th>
             <th>MoM %</th>
@@ -77,6 +99,14 @@ export default function Recommendations() {
         <tbody>
           {recs.map(r => (
             <tr key={r.type_id}>
+              <td>
+                <button
+                  onClick={() => toggleWatchlist(r.type_id)}
+                  disabled={loading}
+                >
+                  {watchlist.has(r.type_id) ? '★' : '☆'}
+                </button>
+              </td>
               <td>{typeNames[r.type_id] || r.type_id}</td>
               <td>{(r.net_pct * 100).toFixed(2)}</td>
               <td>{(r.uplift_mom * 100).toFixed(2)}</td>
