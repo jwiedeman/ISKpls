@@ -20,6 +20,47 @@ DEFAULTS: Dict[str, Any] = {
     "SPREAD_BUFFER": config.SPREAD_BUFFER,
 }
 
+# Metadata used for validation and UI hints
+FIELD_META: Dict[str, Dict[str, Any]] = {
+    "STATION_ID": {"type": int, "min": 1},
+    "REGION_ID": {"type": int, "min": 1},
+    "DATASOURCE": {"type": str},
+    "VENUE": {"type": str},
+    "SALES_TAX": {"type": float, "min": 0.0, "max": 1.0},
+    "BROKER_BUY": {"type": float, "min": 0.0, "max": 1.0},
+    "BROKER_SELL": {"type": float, "min": 0.0, "max": 1.0},
+    "RELIST_HAIRCUT": {"type": float, "min": 0.0, "max": 1.0},
+    "MOM_THRESHOLD": {"type": float, "min": 0.0, "max": 1.0},
+    "MIN_DAYS_TRADED": {"type": int, "min": 0},
+    "MIN_DAILY_VOL": {"type": int, "min": 0},
+    "SPREAD_BUFFER": {"type": float, "min": 0.0, "max": 1.0},
+}
+
+
+def validate_settings(updates: Dict[str, Any]) -> None:
+    """Validate incoming settings against type and range constraints."""
+    for key, value in updates.items():
+        meta = FIELD_META.get(key)
+        if not meta:
+            raise ValueError(f"Unknown setting {key}")
+        expected = meta.get("type")
+        if expected is int:
+            try:
+                value = int(value)
+            except (TypeError, ValueError):
+                raise ValueError(f"{key} must be an integer")
+        elif expected is float:
+            try:
+                value = float(value)
+            except (TypeError, ValueError):
+                raise ValueError(f"{key} must be a number")
+        elif expected is str:
+            value = str(value)
+        if "min" in meta and value < meta["min"]:
+            raise ValueError(f"{key} must be >= {meta['min']}")
+        if "max" in meta and value > meta["max"]:
+            raise ValueError(f"{key} must be <= {meta['max']}")
+
 
 def _coerce(key: str, value: str) -> Any:
     """Coerce string values back to the type of the default."""
