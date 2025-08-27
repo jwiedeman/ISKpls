@@ -32,11 +32,19 @@ Features:
    python -c "from app.trends import refresh_trends; refresh_trends()"
    python -c "from app.scheduler import fill_queue_from_trends, run_tick; fill_queue_from_trends(); run_tick()"
    ```
-5. Set `CHAR_ID` and `TOKEN` in `app/run_character_sync.py` then run:
+5. Set the following environment variables:
+
+   - `EVE_CLIENT_ID` and `EVE_CLIENT_SECRET` – from your EVE developer application
+   - `CHAR_ID` – your character's ID
+
+   Then run the character sync:
 
    ```bash
    python -m app.run_character_sync
    ```
+
+   The first run will open a browser window for authorization and cache the
+   refresh token in `token.json`.
 
 Run `python -m py_compile $(git ls-files '*.py')` to verify syntax.
 
