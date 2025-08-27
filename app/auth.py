@@ -109,7 +109,12 @@ def _run_local_server() -> str:
             return
 
     url = urllib.parse.urlparse(CALLBACK_URL)
-    server = HTTPServer((url.hostname or "localhost", url.port or 5000), Handler)
+    # Bind to all interfaces so the callback can be received when running in
+    # containers or behind port forwarding setups where ``localhost`` inside the
+    # process would otherwise not be reachable from the user's browser.  Using
+    # an empty string instead of ``localhost`` makes the server listen on
+    # ``0.0.0.0`` which covers these cases while still working for local runs.
+    server = HTTPServer(("", url.port or 5000), Handler)
     thread = threading.Thread(target=server.handle_request)
     thread.start()
     thread.join()
