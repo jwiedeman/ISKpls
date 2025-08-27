@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from .settings_service import get_settings, update_settings, FIELD_META, validate_settings
 from .recommender import build_recommendations
 from .scheduler import run_tick
-from .db import connect
+from .db import connect, init_db
 from .valuation import compute_portfolio_snapshot, refresh_type_valuations
 from .esi import get_error_limit_status
 from .auth import get_token, token_status
@@ -29,6 +29,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+
+@app.on_event("startup")
+def _startup() -> None:
+    """Initialize the SQLite database and preload type names."""
+    # Ensure the database schema exists before serving requests.
+    init_db()
+    # Warm the type ID → name cache for nicer API responses.
+    refresh_type_name_cache()
+
 
 
 @app.get("/healthz")
