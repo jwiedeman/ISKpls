@@ -1,4 +1,5 @@
 import os
+import logging
 
 from .db import init_db, connect
 from .char_sync import (
@@ -13,12 +14,16 @@ from .valuation import refresh_type_valuations, compute_portfolio_snapshot
 from .pnl import pnl_fifo
 from .auth import get_token
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
 CHAR_ID = int(os.getenv("CHAR_ID", "0"))
 
 
 def main():
     token = get_token()
     con = init_db()
+    logger = logging.getLogger(__name__)
+    logger.info("Starting character sync for %s", CHAR_ID)
     sync_wallet_balance(con, CHAR_ID, token)
     sync_wallet_journal(con, CHAR_ID, token)
     sync_wallet_transactions(con, CHAR_ID, token)
