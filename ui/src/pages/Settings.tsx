@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getSettings, updateSettings } from '../api';
 
 export default function Settings() {
-  const [settings, setSettings] = useState<Record<string, any>>({});
+  const [settings, setSettings] = useState<Record<string, unknown>>({});
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -17,8 +17,12 @@ export default function Settings() {
     try {
       await updateSettings(settings);
       alert('Saved');
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError(String(e));
+      }
     }
   }
 
