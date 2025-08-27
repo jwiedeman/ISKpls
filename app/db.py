@@ -151,6 +151,29 @@ CREATE TABLE IF NOT EXISTS inventory_cost_basis (
   avg_cost REAL,
   updated TEXT
 );
+
+CREATE TABLE IF NOT EXISTS recommendations (
+  type_id INTEGER NOT NULL,
+  ts_utc TEXT NOT NULL,
+  net_pct REAL,
+  uplift_mom REAL,
+  daily_capacity REAL,
+  rationale_json TEXT,
+  PRIMARY KEY (type_id, ts_utc)
+);
+
+CREATE TABLE IF NOT EXISTS jobs_history (
+  name TEXT NOT NULL,
+  ts_utc TEXT NOT NULL,
+  ok INTEGER NOT NULL,
+  details_json TEXT,
+  PRIMARY KEY (name, ts_utc)
+);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
 """
 
 
