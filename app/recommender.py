@@ -3,6 +3,7 @@ import json
 from .db import connect
 from .market import evaluate_type
 from .config import MIN_DAILY_VOL
+from .jobs import record_job
 
 
 def build_recommendations(limit=50):
@@ -36,6 +37,10 @@ def build_recommendations(limit=50):
             )
             results.append(rec)
         con.commit()
+        record_job("recommendations", True, {"count": len(results)})
         return results
+    except Exception as e:
+        record_job("recommendations", False, {"error": str(e)})
+        raise
     finally:
         con.close()

@@ -4,6 +4,7 @@ from .db import connect
 from .jita_snapshots import refresh_one
 from .trends import compute_mom, region_history
 from .config import REGION_ID
+from .jobs import record_job
 
 logger = logging.getLogger(__name__)
 
@@ -46,19 +47,25 @@ def fill_queue_from_trends(max_types=500):
 def run_tick(max_calls=200):
     logger.info("Running scheduler tick")
     con = connect()
-    due = con.execute(
-        """
-        SELECT type_id FROM type_status
-        WHERE next_refresh IS NULL OR next_refresh <= datetime('now')
-        ORDER BY COALESCE(last_orders_refresh,'1970-01-01') ASC
-        LIMIT ?
-        """,
-        (max_calls,),
-    ).fetchall()
-    logger.info("%s types due for refresh", len(due))
-    for (tid,) in due:
-        logger.info("Refreshing %s", tid)
-        refresh_one(con, tid)
-        con.commit()
-        time.sleep(0.2)
-    con.close()
+    try:
+        due = con.execute(
+            """
+            SELECT type_id FROM type_status
+            WHERE next_refresh IS NULL OR next_refresh <= datetime('now')
+            ORDER BY COALESCE(last_orders_refresh,'1970-01-01') ASC
+            LIMIT ?
+            """,
+            (max_calls,),
+        ).fetchall()
+        logger.info("%s types due for refresh", len(due))
+        for (tid,) in due:
+            logger.info("Refreshing %s", tid)
+            refresh_one(con, tid)
+            con.commit()
+            time.sleep(0.2)
+        record_job("scheduler_tick", True, {"refreshed": len(due)})
+    except Exception as e:
+        record_job("scheduler_tick", False, {"error": str(e)})
+        raise
+    finally:
+        con.close()
