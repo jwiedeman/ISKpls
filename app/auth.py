@@ -155,3 +155,14 @@ def get_token() -> str:
         raise RuntimeError("Authorization failed; no code received")
     return _exchange_code(code)
 
+
+def token_status() -> dict:
+    """Return whether a cached token exists and its expiry timestamp."""
+    tokens = _load_tokens()
+    if not tokens:
+        return {"has_token": False, "expires_at": 0}
+    return {
+        "has_token": True,
+        "expires_at": tokens.get("expires_at", 0),
+    }
+
