@@ -64,3 +64,33 @@ def test_list_recommendations_filters(tmp_path, monkeypatch):
     data2 = resp.json()
     assert data2["results"] == []
 
+
+def test_recommendations_sort_and_offset(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.sqlite3")
+    db.init_db()
+    con = db.connect()
+    try:
+        _seed_types(con)
+        _seed_recommendations(con)
+        type_cache.refresh_type_name_cache()
+    finally:
+        con.close()
+
+    client = TestClient(service.app)
+
+    # Sort ascending by net_pct should put type 2 first
+    resp = client.get("/recommendations", params={"sort": "net_pct", "dir": "asc"})
+    assert resp.status_code == 200
+    data = resp.json()["results"]
+    assert data[0]["type_id"] == 2
+
+    # Offset should skip the first record when ordered by ts_utc desc
+    resp = client.get(
+        "/recommendations",
+        params={"limit": 1, "offset": 1, "sort": "ts_utc", "dir": "desc"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["results"]
+    assert len(data) == 1
+    assert data[0]["type_id"] == 1
+
