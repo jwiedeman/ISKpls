@@ -224,7 +224,7 @@ def list_recommendations(
     try:
         rows = con.execute(
             f"""
-            SELECT type_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json
+            SELECT type_id, station_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json
             FROM recommendations
             WHERE net_pct >= ? AND uplift_mom >= ?
             ORDER BY {col} {direction}
@@ -235,7 +235,7 @@ def list_recommendations(
     finally:
         con.close()
     results = []
-    for type_id, ts, net, mom, cap, rationale in rows:
+    for type_id, station_id, ts, net, mom, cap, rationale in rows:
         try:
             details = json.loads(rationale) if rationale else {}
         except json.JSONDecodeError:
@@ -244,6 +244,7 @@ def list_recommendations(
             {
                 "type_id": type_id,
                 "type_name": get_type_name(type_id),
+                "station_id": station_id,
                 "ts_utc": ts,
                 "net_pct": net,
                 "uplift_mom": mom,

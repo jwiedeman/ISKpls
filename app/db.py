@@ -162,14 +162,25 @@ CREATE TABLE IF NOT EXISTS inventory_cost_basis (
 
 CREATE TABLE IF NOT EXISTS recommendations (
   type_id INTEGER NOT NULL,
+  station_id INTEGER NOT NULL,
   ts_utc TEXT NOT NULL,
   net_pct REAL,
   uplift_mom REAL,
   daily_capacity REAL,
-  rationale_json TEXT,
-  PRIMARY KEY (type_id, ts_utc)
+  rationale_json TEXT
 );
 
+-- Remove duplicates before creating unique index
+DELETE FROM recommendations
+WHERE rowid IN (
+  SELECT a.rowid FROM recommendations a
+  JOIN recommendations b
+    ON a.type_id = b.type_id
+   AND a.station_id = b.station_id
+   AND a.rowid > b.rowid
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_recs_type_station ON recommendations(type_id, station_id);
 CREATE INDEX IF NOT EXISTS idx_recommendations_type ON recommendations(type_id);
 
 CREATE TABLE IF NOT EXISTS watchlist (
