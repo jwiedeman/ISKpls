@@ -4,6 +4,7 @@ import {
   getWatchlist,
   addWatchlist,
   removeWatchlist,
+  getSettings,
   type RecParams,
 } from '../api';
 import Spinner from '../Spinner';
@@ -49,6 +50,7 @@ export default function Recommendations() {
   const [selected, setSelected] = useState<Rec | null>(null);
   const [watchlist, setWatchlist] = useState<Set<number>>(new Set());
   const [showAll, setShowAll] = useState(false);
+  const [fees, setFees] = useState<{ buy: number; sell: number } | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -84,6 +86,20 @@ export default function Recommendations() {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, sorting, search, showAll, minProfit, minMom]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const s = await getSettings();
+        setFees({
+          buy: s.BROKER_BUY,
+          sell: s.SALES_TAX + s.BROKER_SELL + s.RELIST_HAIRCUT,
+        });
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
 
   const toggleWatchlist = useCallback(async (id: number) => {
     try {
@@ -223,6 +239,13 @@ export default function Recommendations() {
       <h2>Recommendations</h2>
       <p>
         Mode: Profit-only · Min Profit: {minProfit}% · Show All: {showAll ? 'On' : 'Off'}
+        {fees && (
+          <span
+            style={{ marginLeft: '0.5em', border: '1px solid #ccc', padding: '2px 4px' }}
+          >
+            Fees: buy {(fees.buy * 100).toFixed(2)}% sell {(fees.sell * 100).toFixed(2)}%
+          </span>
+        )}
       </p>
       <ErrorBanner message={error} />
       {loading && <Spinner />}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getDbItems, type DbItem } from '../api';
+import { getDbItems, type DbItem, getSettings } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 import { type ColumnDef, type SortingState } from '@tanstack/react-table';
@@ -76,6 +76,7 @@ export default function Db() {
   const [dealFilters, setDealFilters] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fees, setFees] = useState<{ buy: number; sell: number } | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -104,6 +105,20 @@ export default function Db() {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sorting, search, minProfit, dealFilters]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const s = await getSettings();
+        setFees({
+          buy: s.BROKER_BUY,
+          sell: s.SALES_TAX + s.BROKER_SELL + s.RELIST_HAIRCUT,
+        });
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
 
   function toggleDeal(d: string) {
     setDealFilters((prev) =>
@@ -197,6 +212,13 @@ export default function Db() {
         >
           Export CSV
         </button>
+        {fees && (
+          <span
+            style={{ marginLeft: '0.5em', border: '1px solid #ccc', padding: '2px 4px' }}
+          >
+            Fees: buy {(fees.buy * 100).toFixed(2)}% sell {(fees.sell * 100).toFixed(2)}%
+          </span>
+        )}
         {minProfit > 0 && (
           <span
             style={{ marginLeft: '0.5em', border: '1px solid #ccc', padding: '2px 4px' }}
