@@ -63,6 +63,7 @@ export default function Recommendations() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Rec | null>(null);
   const [watchlist, setWatchlist] = useState<Set<number>>(new Set());
+  const [showAll, setShowAll] = useState(false);
 
   async function refresh() {
     setLoading(true);
@@ -77,6 +78,7 @@ export default function Recommendations() {
         search,
         min_net: minNet,
         min_mom: minMom,
+        all: showAll,
       });
       setRows(data.rows || []);
       setTotal(data.total || 0);
@@ -93,7 +95,7 @@ export default function Recommendations() {
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, sorting, search]);
+  }, [page, sorting, search, showAll]);
 
   const table = useReactTable({
     data: rows,
@@ -155,6 +157,9 @@ export default function Recommendations() {
         </label>
         <button style={{ marginLeft: '1em' }} onClick={refresh} disabled={loading}>Refresh</button>
         <button style={{ marginLeft: '1em' }} onClick={exportCsv} disabled={!rows.length}>Export CSV</button>
+        <label style={{ marginLeft: '1em' }}>
+          <input type="checkbox" checked={showAll} onChange={e => setShowAll(e.target.checked)} /> Show All
+        </label>
       </div>
       <table>
         <thead>

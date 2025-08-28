@@ -189,3 +189,23 @@ def test_recommendations_without_type_entries(tmp_path, monkeypatch):
     assert data["total"] == 2
     assert {r["type_id"] for r in data["rows"]} == {1, 2}
 
+
+def test_recommendations_show_all(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.sqlite3")
+    db.init_db()
+    con = db.connect()
+    try:
+        _seed_types(con)
+        _seed_trends(con)
+        _seed_snapshots(con)
+        # note: do not seed recommendations to simulate empty table
+    finally:
+        con.close()
+
+    client = TestClient(service.app)
+    resp = client.get("/recommendations", params={"all": True})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 2
+    assert {r["type_id"] for r in data["rows"]} == {1, 2}
+
