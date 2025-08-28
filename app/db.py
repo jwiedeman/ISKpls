@@ -80,7 +80,11 @@ CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(type_id);
 CREATE TABLE IF NOT EXISTS types (
   type_id INTEGER PRIMARY KEY,
   name TEXT,
-  group_id INTEGER
+  group_id INTEGER,
+  category_id INTEGER,
+  volume REAL,
+  meta_level REAL,
+  market_group_id INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_types_name ON types(name);
@@ -182,6 +186,7 @@ WHERE rowid IN (
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_recs_type_station ON recommendations(type_id, station_id);
 CREATE INDEX IF NOT EXISTS idx_recommendations_type ON recommendations(type_id);
+CREATE INDEX IF NOT EXISTS idx_recs_station ON recommendations(station_id);
 
 CREATE TABLE IF NOT EXISTS watchlist (
   type_id INTEGER PRIMARY KEY,

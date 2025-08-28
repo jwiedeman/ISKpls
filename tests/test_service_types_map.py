@@ -42,9 +42,20 @@ def test_types_map_fetches_unknown_ids(tmp_path, monkeypatch):
     type_cache._type_name_cache = None
 
     def fake_fetch(ids):
-        return {545: "Widget"} if 545 in ids else {}
+        if 545 in ids:
+            return {
+                545: {
+                    "name": "Widget",
+                    "group_id": 10,
+                    "category_id": 1,
+                    "volume": 1.0,
+                    "meta_level": None,
+                    "market_group_id": None,
+                }
+            }
+        return {}
 
-    monkeypatch.setattr(type_cache, "_fetch_names_from_esi", fake_fetch)
+    monkeypatch.setattr(type_cache, "_fetch_details_from_esi", fake_fetch)
 
     client = TestClient(service.app)
     resp = client.get("/types/map", params={"ids": "545"})
