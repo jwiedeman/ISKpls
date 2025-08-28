@@ -12,7 +12,6 @@ from .settings_service import (
     validate_settings,
 )
 from .recommender import build_recommendations
-from typing import Literal
 from .scheduler import run_tick
 from .db import connect, init_db
 from .valuation import compute_portfolio_snapshot, refresh_type_valuations
@@ -231,6 +230,148 @@ def list_snipes(
     }
 
 
+def _list_latest_items(
+    *,
+    station_id: int,
+    limit: int,
+    offset: int,
+    sort: str,
+    dir: str,
+    search: str | None,
+    min_profit_pct: float,
+    deal_filter: set[str] | None = None,
+    min_mom: float | None = None,
+    min_vol: float | None = None,
+    category: int | None = None,
+    meta: int | None = None,
+    show_all: bool = False,
+    include_rec: bool = False,
+    default_sort: str = "last_updated",
+) -> dict[str, Any]:
+    """Shared listing logic for latest price snapshots."""
+    settings = get_settings()
+    fees = Fees(
+        buy_total=settings["BROKER_BUY"],
+        sell_total=settings["SALES_TAX"]
+        + settings["BROKER_SELL"]
+        + settings["RELIST_HAIRCUT"],
+    )
+    thresholds = settings["DEAL_THRESHOLDS"]
+    con = connect()
+    try:
+        where = ["lp.station_id = ?"]
+        params: list[Any] = [station_id]
+        if category is not None:
+            where.append("types.category_id = ?")
+            params.append(category)
+        if meta is not None:
+            where.append("COALESCE(types.meta_level,0) >= ?")
+            params.append(meta)
+        if search:
+            if search.isdigit():
+                where.append("(lp.type_id = ? OR types.name LIKE ?)")
+                params.extend([int(search), f"%{search}%"])
+            else:
+                where.append("types.name LIKE ?")
+                params.append(f"%{search}%")
+        join_rec = ""
+        select_extra = ""
+        if include_rec:
+            join_rec = "LEFT JOIN recommendations r ON r.type_id = lp.type_id AND r.station_id = ?"
+            params.insert(0, station_id)
+            if not show_all:
+                where.append("r.type_id IS NOT NULL")
+            select_extra = ", r.net_pct, r.uplift_mom, r.daily_capacity, r.rationale_json"
+        where_clause = " AND ".join(where)
+        rows = con.execute(
+            f"""
+            SELECT lp.type_id, types.name, lp.best_bid, lp.best_ask, lp.last_updated,
+                   tr.mom_pct, tr.vol_30d_avg{select_extra}
+            FROM latest_prices_v lp
+            {join_rec}
+            LEFT JOIN types ON lp.type_id = types.type_id
+            LEFT JOIN type_trends tr ON tr.type_id = lp.type_id
+            WHERE {where_clause}
+            """,
+            params,
+        ).fetchall()
+    finally:
+        con.close()
+    now = datetime.utcnow()
+    results = []
+    for row in rows:
+        if include_rec:
+            (
+                tid,
+                tname,
+                bid,
+                ask,
+                ts,
+                mom,
+                vol,
+                net_pct,
+                uplift_mom,
+                daily_cap,
+                rationale,
+            ) = row
+        else:
+            tid, tname, bid, ask, ts, mom, vol = row
+        has_both = bid is not None and ask is not None
+        profit_isk, profit_pct = compute_profit(bid, ask, fees, tick)
+        if profit_pct < min_profit_pct:
+            continue
+        if min_mom is not None and (mom is None or mom < min_mom):
+            continue
+        if min_vol is not None and (vol is None or vol < min_vol):
+            continue
+        label = deal_label(profit_pct, thresholds=thresholds)
+        if deal_filter and label not in deal_filter:
+            continue
+        last_dt = datetime.fromisoformat(ts)
+        fresh_ms = int((now - last_dt).total_seconds() * 1000)
+        item = {
+            "type_id": tid,
+            "type_name": tname or get_type_name(tid),
+            "best_bid": bid,
+            "best_ask": ask,
+            "last_updated": ts,
+            "fresh_ms": fresh_ms,
+            "profit_pct": profit_pct,
+            "profit_isk": profit_isk,
+            "deal": label,
+            "mom": mom,
+            "est_daily_vol": vol,
+            "has_both_sides": has_both,
+        }
+        if include_rec:
+            try:
+                details = json.loads(rationale) if rationale else {}
+            except json.JSONDecodeError:
+                details = {}
+            item.update(
+                {
+                    "net_pct": net_pct,
+                    "uplift_mom": uplift_mom,
+                    "daily_capacity": daily_cap,
+                    "details": details,
+                }
+            )
+        results.append(item)
+    allowed = {
+        "last_updated": "last_updated",
+        "type_name": "type_name",
+        "best_bid": "best_bid",
+        "best_ask": "best_ask",
+        "profit_pct": "profit_pct",
+    }
+    key = allowed.get(sort, default_sort)
+    reverse = dir.lower() != "asc"
+    results.sort(key=lambda r: (r[key] is None, r[key]), reverse=reverse)
+    total = len(results)
+    sliced = results[offset : offset + limit]
+    return {"rows": sliced, "total": total}
+
+
 @app.get("/db/items")
 def list_db_items(
     station_id: int = STATION_ID,
@@ -243,79 +384,18 @@ def list_db_items(
     min_profit_pct: float = 0.0,
 ):
     """Return latest known market data for all seen types."""
-    settings = get_settings()
-    fees = Fees(
-        buy_total=settings["BROKER_BUY"],
-        sell_total=settings["SALES_TAX"] + settings["BROKER_SELL"] + settings["RELIST_HAIRCUT"],
-    )
-    thresholds = settings["DEAL_THRESHOLDS"]
-    con = connect()
-    try:
-        where = ["lp.station_id = ?"]
-        params: list[Any] = [station_id]
-        if search:
-            if search.isdigit():
-                where.append("(lp.type_id = ? OR types.name LIKE ?)")
-                params.extend([int(search), f"%{search}%"])
-            else:
-                where.append("types.name LIKE ?")
-                params.append(f"%{search}%")
-        where_clause = " AND ".join(where)
-        rows = con.execute(
-            f"""
-            SELECT lp.type_id, types.name, lp.best_bid, lp.best_ask, lp.last_updated,
-                   tr.mom_pct, tr.vol_30d_avg
-            FROM latest_prices_v lp
-            LEFT JOIN types ON lp.type_id = types.type_id
-            LEFT JOIN type_trends tr ON tr.type_id = lp.type_id
-            WHERE {where_clause}
-            """,
-            params,
-        ).fetchall()
-    finally:
-        con.close()
-    now = datetime.utcnow()
-    results = []
     deal_filter = {d.title() for d in (deal or [])}
-    for tid, tname, bid, ask, ts, mom, vol in rows:
-        has_both = bid is not None and ask is not None
-        profit_isk, profit_pct = compute_profit(bid, ask, fees, tick)
-        if profit_pct < min_profit_pct:
-            continue
-        label = deal_label(profit_pct, thresholds=thresholds)
-        if deal_filter and label not in deal_filter:
-            continue
-        last_dt = datetime.fromisoformat(ts)
-        fresh_ms = int((now - last_dt).total_seconds() * 1000)
-        results.append(
-            {
-                "type_id": tid,
-                "type_name": tname or get_type_name(tid),
-                "best_bid": bid,
-                "best_ask": ask,
-                "last_updated": ts,
-                "fresh_ms": fresh_ms,
-                "profit_pct": profit_pct,
-                "profit_isk": profit_isk,
-                "deal": label,
-                "mom": mom,
-                "est_daily_vol": vol,
-                "has_both_sides": has_both,
-            }
-        )
-    allowed = {
-        "last_updated": "last_updated",
-        "type_name": "type_name",
-        "best_bid": "best_bid",
-        "best_ask": "best_ask",
-        "profit_pct": "profit_pct",
-    }
-    key = allowed.get(sort, "last_updated")
-    reverse = dir.lower() != "asc"
-    results.sort(key=lambda r: (r[key] is None, r[key]), reverse=reverse)
-    total = len(results)
-    sliced = results[offset : offset + limit]
-    return {"rows": sliced, "total": total}
+    return _list_latest_items(
+        station_id=station_id,
+        limit=limit,
+        offset=offset,
+        sort=sort,
+        dir=dir,
+        search=search,
+        min_profit_pct=min_profit_pct,
+        deal_filter=deal_filter,
+        default_sort="last_updated",
+    )
 
 
 def legacy_list_recommendations(
@@ -481,112 +561,22 @@ def list_recommendations(
             station_id,
         )
 
-    settings = get_settings()
-    fees = Fees(
-        buy_total=settings["BROKER_BUY"],
-        sell_total=settings["SALES_TAX"] + settings["BROKER_SELL"] + settings["RELIST_HAIRCUT"],
+    return _list_latest_items(
+        station_id=station_id,
+        limit=limit,
+        offset=offset,
+        sort=sort,
+        dir=dir,
+        search=search,
+        min_profit_pct=min_profit_pct,
+        min_mom=min_mom,
+        min_vol=min_vol,
+        category=category,
+        meta=meta,
+        show_all=show_all,
+        include_rec=True,
+        default_sort="profit_pct",
     )
-    thresholds = settings["DEAL_THRESHOLDS"]
-    con = connect()
-    try:
-        where = ["lp.station_id = ?"]
-        params: list[Any] = [station_id]
-        if category is not None:
-            where.append("types.category_id = ?")
-            params.append(category)
-        if meta is not None:
-            where.append("COALESCE(types.meta_level,0) >= ?")
-            params.append(meta)
-        if search:
-            if search.isdigit():
-                where.append("(lp.type_id = ? OR types.name LIKE ?)")
-                params.extend([int(search), f"%{search}%"])
-            else:
-                where.append("types.name LIKE ?")
-                params.append(f"%{search}%")
-        join_rec = "LEFT JOIN recommendations r ON r.type_id = lp.type_id AND r.station_id = ?"
-        params.insert(0, station_id)
-        if not show_all:
-            where.append("r.type_id IS NOT NULL")
-        where_clause = " AND ".join(where)
-        rows = con.execute(
-            f"""
-            SELECT lp.type_id, types.name, lp.best_bid, lp.best_ask, lp.last_updated,
-                   tr.mom_pct, tr.vol_30d_avg, r.net_pct, r.uplift_mom,
-                   r.daily_capacity, r.rationale_json
-            FROM latest_prices_v lp
-            {join_rec}
-            LEFT JOIN types ON lp.type_id = types.type_id
-            LEFT JOIN type_trends tr ON tr.type_id = lp.type_id
-            WHERE {where_clause}
-            """,
-            params,
-        ).fetchall()
-    finally:
-        con.close()
-    now = datetime.utcnow()
-    results = []
-    for (
-        tid,
-        tname,
-        bid,
-        ask,
-        ts,
-        mom,
-        vol,
-        net_pct,
-        uplift_mom,
-        daily_cap,
-        rationale,
-    ) in rows:
-        has_both = bid is not None and ask is not None
-        profit_isk, profit_pct = compute_profit(bid, ask, fees, tick)
-        if profit_pct < min_profit_pct:
-            continue
-        if min_mom is not None and (mom is None or mom < min_mom):
-            continue
-        if min_vol is not None and (vol is None or vol < min_vol):
-            continue
-        label = deal_label(profit_pct, thresholds=thresholds)
-        last_dt = datetime.fromisoformat(ts)
-        fresh_ms = int((now - last_dt).total_seconds() * 1000)
-        try:
-            details = json.loads(rationale) if rationale else {}
-        except json.JSONDecodeError:
-            details = {}
-        results.append(
-            {
-                "type_id": tid,
-                "type_name": tname or get_type_name(tid),
-                "best_bid": bid,
-                "best_ask": ask,
-                "last_updated": ts,
-                "fresh_ms": fresh_ms,
-                "profit_pct": profit_pct,
-                "profit_isk": profit_isk,
-                "deal": label,
-                "mom": mom,
-                "est_daily_vol": vol,
-                "net_pct": net_pct,
-                "uplift_mom": uplift_mom,
-                "daily_capacity": daily_cap,
-                "details": details,
-                "has_both_sides": has_both,
-            }
-        )
-    allowed = {
-        "last_updated": "last_updated",
-        "type_name": "type_name",
-        "best_bid": "best_bid",
-        "best_ask": "best_ask",
-        "profit_pct": "profit_pct",
-    }
-    key = allowed.get(sort, "profit_pct")
-    reverse = dir.lower() != "asc"
-    results.sort(key=lambda r: (r[key] is None, r[key]), reverse=reverse)
-    total = len(results)
-    sliced = results[offset : offset + limit]
-    return {"rows": sliced, "total": total}
 
 
 
