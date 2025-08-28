@@ -62,6 +62,17 @@ def test_recommendations_build_dry_run(tmp_path, monkeypatch):
     assert data["scored"] == 3
     assert data["would_write"] == 3
 
+    # legacy mode should gate by freshness and MoM
+    resp = client.post("/recommendations/build", params={"dry_run": True, "mode": "legacy"})
+    assert resp.status_code == 200
+    legacy = resp.json()
+    assert legacy["candidates"] == 3
+    assert legacy["fresh_pass"] == 1
+    assert legacy["vol_pass"] == 1
+    assert legacy["mom_pass"] == 1
+    assert legacy["scored"] == 1
+    assert legacy["would_write"] == 1
+
     # ensure no rows written
     con = db.connect()
     try:
