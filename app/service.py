@@ -756,9 +756,15 @@ def recompute_valuations():
 
 
 @app.post("/jobs/{name}/run")
-def run_job(name: str):
+def run_job(name: str, verbose: bool = False):
+    """Run a background job immediately.
+
+    The optional ``verbose`` flag triggers additional event chatter so that
+    testers can observe progress updates even in fast unit-test scenarios.
+    """
+
     if name == "recommendations":
-        recs = build_recommendations()
+        recs = build_recommendations(verbose=verbose)
         return {"count": len(recs)}
     if name == "scheduler_tick":
         run_tick()
