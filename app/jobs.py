@@ -171,6 +171,7 @@ def worker(limiter: RateLimiter) -> None:
 def record_job(name: str, ok: bool, details: Optional[Any] = None) -> None:
     """Record a job execution in the ``jobs_history`` table."""
 
+    ts = datetime.utcnow().isoformat()
     con = db.connect()
     try:
         con.execute(
@@ -180,12 +181,25 @@ def record_job(name: str, ok: bool, details: Optional[Any] = None) -> None:
             """,
             (
                 name,
-                datetime.utcnow().isoformat(),
+                ts,
                 1 if ok else 0,
                 json.dumps(details) if details is not None else None,
             ),
         )
         con.commit()
+        # Update in-memory status snapshot with recent job information.
+        count_10m = con.execute(
+            "SELECT COUNT(*) FROM jobs_history WHERE ts_utc >= datetime('now', '-10 minutes')"
+        ).fetchone()[0]
     finally:
         con.close()
+
+    # Keep most recent job runs (max 20) in memory for the /status endpoint.
+    rec: Dict[str, Any] = {"job": name, "ok": ok, "ts": ts}
+    if isinstance(details, dict) and "ms" in details:
+        rec["ms"] = details["ms"]
+    STATUS.setdefault("last_runs", [])
+    STATUS["last_runs"] = [rec] + STATUS["last_runs"][:19]
+    STATUS.setdefault("counts", {})
+    STATUS["counts"]["jobs_10m"] = count_10m
 
