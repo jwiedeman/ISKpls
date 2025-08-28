@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app import service, db, type_cache
+from app.config import STATION_ID
 
 
 def _seed_data(con):
@@ -16,11 +17,12 @@ def _seed_data(con):
     )
     con.execute(
         """
-        INSERT INTO market_snapshots(ts_utc, type_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units)
+        INSERT INTO market_snapshots(ts_utc, type_id, station_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units)
         VALUES
-          ('2024-01-01T00:00:00', 1, 100.0, 80.0, 1, 1, 10, 10),
-          ('2024-01-01T00:00:00', 2, 100.0, 99.0, 1, 1, 10, 10)
-        """
+          ('2024-01-01T00:00:00', 1, ?, 100.0, 80.0, 1, 1, 10, 10),
+          ('2024-01-01T00:00:00', 2, ?, 100.0, 99.0, 1, 1, 10, 10)
+        """,
+        (STATION_ID, STATION_ID),
     )
     con.commit()
 

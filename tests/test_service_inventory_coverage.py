@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app import service, db
+from app.config import STATION_ID
 
 
 def test_inventory_coverage(tmp_path, monkeypatch):
@@ -19,12 +20,12 @@ def test_inventory_coverage(tmp_path, monkeypatch):
         recent = (now - timedelta(minutes=5)).strftime(fmt)
         old = (now - timedelta(minutes=20)).strftime(fmt)
         con.execute(
-            "INSERT INTO market_snapshots(ts_utc, type_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units) VALUES (?,?,?,?,?,?,?,?)",
-            (recent, 1, 10, 12, 0, 0, 0, 0),
+            "INSERT INTO market_snapshots(ts_utc, type_id, station_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units) VALUES (?,?,?,?,?,?,?,?,?)",
+            (recent, 1, STATION_ID, 10, 12, 0, 0, 0, 0),
         )
         con.execute(
-            "INSERT INTO market_snapshots(ts_utc, type_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units) VALUES (?,?,?,?,?,?,?,?)",
-            (old, 2, 11, 13, 0, 0, 0, 0),
+            "INSERT INTO market_snapshots(ts_utc, type_id, station_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units) VALUES (?,?,?,?,?,?,?,?,?)",
+            (old, 2, STATION_ID, 11, 13, 0, 0, 0, 0),
         )
         con.commit()
     finally:

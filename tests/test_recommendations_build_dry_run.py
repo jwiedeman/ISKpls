@@ -29,12 +29,12 @@ def test_recommendations_build_dry_run(tmp_path, monkeypatch):
         recent = (now - timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
         old = (now - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
         con.execute(
-            "INSERT INTO market_snapshots(ts_utc, type_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units) VALUES (?,?,?,?,?,?,?,?)",
-            (recent, 1, 10, 12, 0, 0, 0, 0),
+            "INSERT INTO market_snapshots(ts_utc, type_id, station_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units) VALUES (?,?,?,?,?,?,?,?,?)",
+            (recent, 1, config.STATION_ID, 10, 12, 0, 0, 0, 0),
         )
         con.execute(
-            "INSERT INTO market_snapshots(ts_utc, type_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units) VALUES (?,?,?,?,?,?,?,?)",
-            (old, 2, 11, 13, 0, 0, 0, 0),
+            "INSERT INTO market_snapshots(ts_utc, type_id, station_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units) VALUES (?,?,?,?,?,?,?,?,?)",
+            (old, 2, config.STATION_ID, 11, 13, 0, 0, 0, 0),
         )
         con.commit()
     finally:
