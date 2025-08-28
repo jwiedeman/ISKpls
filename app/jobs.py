@@ -14,9 +14,27 @@ from datetime import datetime
 import heapq
 import json
 import time
+import asyncio
+import uuid
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from . import db, esi
+from .status import STATUS, emit
+
+
+def _emit(evt: Dict[str, Any]) -> None:
+    """Fire-and-forget wrapper around :func:`status.emit`.
+
+    The job queue runs in synchronous contexts (including tests) where an
+    event loop may not be running. If no loop is active we silently drop the
+    event so unit tests remain simple.
+    """
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    loop.create_task(emit(evt))
 
 # Public state for status reporting -------------------------------------------------
 
@@ -48,6 +66,9 @@ class Job:
 def _refresh_snapshot() -> None:
     """Update ``JOB_QUEUE`` snapshot from the internal priority queue."""
     JOB_QUEUE[:] = [job.name for _, _, job in sorted(_queue)]
+    depth = queue_depth()
+    STATUS["queue"] = depth
+    _emit({"type": "queue", "depth": depth})
 
 
 def enqueue(name: str, func: Callable[..., Any], priority: str = "P2", *args, **kwargs) -> None:
@@ -80,11 +101,23 @@ def run_next_job() -> bool:
     _, _, job = heapq.heappop(_queue)
     _refresh_snapshot()
     global IN_FLIGHT
-    IN_FLIGHT = {"name": job.name, "started": datetime.utcnow().isoformat()}
+    job_id = f"j-{uuid.uuid4().hex[:5]}"
+    started = datetime.utcnow().isoformat()
+    IN_FLIGHT = {"name": job.name, "id": job_id, "started": started}
+    STATUS["inflight"] = [{"job": job.name, "id": job_id, "since": started}]
+    _emit({"type": "job_started", "job": job.name, "id": job_id})
+    t0 = time.time()
+    ok = True
     try:
         job.func(*job.args, **job.kwargs)
+    except Exception:  # pragma: no cover - propagated
+        ok = False
+        raise
     finally:
+        ms = int((time.time() - t0) * 1000)
+        _emit({"type": "job_finished", "id": job_id, "ok": ok, "ms": ms})
         IN_FLIGHT = None
+        STATUS["inflight"] = []
     return True
 
 
