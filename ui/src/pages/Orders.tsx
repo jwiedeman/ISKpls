@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { getOpenOrders, getOrderHistory } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
-import { useTypeNames } from '../TypeNamesContext';
 
 interface Order {
   order_id: number;
   is_buy: boolean;
   type_id: number;
+  type_name: string;
   price: number;
   volume_total: number;
   volume_remain: number;
@@ -22,7 +22,6 @@ export default function Orders() {
   const [history, setHistory] = useState<Order[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const typeNames = useTypeNames();
 
   async function refresh() {
     setLoading(true);
@@ -71,10 +70,10 @@ export default function Orders() {
           {openOrders.map(o => (
             <tr key={o.order_id}>
               <td>{o.order_id}</td>
-              <td>{typeNames[o.type_id] || o.type_id}</td>
-              <td>{o.price.toFixed(2)}</td>
-              <td>{(o.fill_pct * 100).toFixed(1)}</td>
-              <td>{o.escrow.toFixed(2)}</td>
+              <td>{o.type_name || o.type_id}</td>
+              <td>{o.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td>{(o.fill_pct * 100).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+              <td>{o.escrow.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             </tr>
           ))}
         </tbody>
@@ -95,9 +94,9 @@ export default function Orders() {
           {history.map(o => (
             <tr key={o.order_id}>
               <td>{o.order_id}</td>
-              <td>{typeNames[o.type_id] || o.type_id}</td>
-              <td>{o.price.toFixed(2)}</td>
-              <td>{(o.fill_pct * 100).toFixed(1)}</td>
+              <td>{o.type_name || o.type_id}</td>
+              <td>{o.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td>{(o.fill_pct * 100).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
               <td>{o.state}</td>
             </tr>
           ))}

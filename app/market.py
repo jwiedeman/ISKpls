@@ -88,12 +88,14 @@ def evaluate_type(type_id):
     break_even = (1 + BROKER_BUY) / (1 - SALES_TAX - BROKER_SELL) - 1
     if net_pct < (break_even + SPREAD_BUFFER):
         return None
-    daily_isk = df.tail(30)["volume"].mean() * df.tail(7)["average"].mean()
+    daily_vol = df.tail(30)["volume"].mean()
+    daily_isk = daily_vol * df.tail(7)["average"].mean()
     return {
         "type_id": type_id,
         "uplift_mom": uplift,
         "net_spread_pct": net_pct,
         "daily_isk_capacity": daily_isk,
+        "daily_volume": daily_vol,
         "best_bid": bid,
         "best_ask": ask,
     }

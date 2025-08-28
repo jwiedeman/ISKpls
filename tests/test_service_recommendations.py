@@ -14,7 +14,8 @@ def _seed_recommendations(con):
         """
         INSERT INTO recommendations(type_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json)
         VALUES
-        (1, '2024-01-01T00:00:00', 0.1, 0.25, 1000, '{}'),
+        (1, '2024-01-01T00:00:00', 0.1, 0.25, 1000,
+         '{"best_bid": 10.0, "best_ask": 12.0, "daily_volume": 500.0}'),
         (2, '2024-01-02T00:00:00', 0.05, 0.30, 2000, '{}')
         """
     )
@@ -52,6 +53,9 @@ def test_list_recommendations_filters(tmp_path, monkeypatch):
     rec = data["results"][0]
     assert rec["type_id"] == 1
     assert rec["type_name"] == "Foo"
+    assert rec["best_bid"] == 10.0
+    assert rec["best_ask"] == 12.0
+    assert rec["daily_volume"] == 500.0
 
     # Filter by MoM uplift should exclude both when threshold high
     resp = client.get("/recommendations", params={"min_mom": 0.35})

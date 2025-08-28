@@ -2,14 +2,17 @@ import { useEffect, useState } from 'react';
 import { getRecommendations, getWatchlist, addWatchlist, removeWatchlist } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
-import { useTypeNames } from '../TypeNamesContext';
 
 interface Rec {
   type_id: number;
+  type_name: string;
   ts_utc: string;
   net_pct: number;
   uplift_mom: number;
   daily_capacity: number;
+  best_bid: number | null;
+  best_ask: number | null;
+  daily_volume: number | null;
   details: Record<string, unknown>;
 }
 
@@ -19,7 +22,6 @@ export default function Recommendations() {
   const [minMom, setMinMom] = useState(0);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const typeNames = useTypeNames();
   const [selected, setSelected] = useState<Rec | null>(null);
   const [watchlist, setWatchlist] = useState<Set<number>>(new Set());
 
@@ -87,6 +89,9 @@ export default function Recommendations() {
             <th>Net %</th>
             <th>MoM %</th>
             <th>Daily ISK</th>
+            <th>Bid</th>
+            <th>Ask</th>
+            <th>Volume</th>
             <th>Explain</th>
           </tr>
         </thead>
@@ -101,10 +106,13 @@ export default function Recommendations() {
                   {watchlist.has(r.type_id) ? '★' : '☆'}
                 </button>
               </td>
-              <td>{typeNames[r.type_id] || r.type_id}</td>
-              <td>{(r.net_pct * 100).toFixed(2)}</td>
-              <td>{(r.uplift_mom * 100).toFixed(2)}</td>
-              <td>{Math.round(r.daily_capacity)}</td>
+              <td>{r.type_name || r.type_id}</td>
+              <td>{(r.net_pct * 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td>{(r.uplift_mom * 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td>{Math.round(r.daily_capacity).toLocaleString()}</td>
+              <td>{(r.best_bid ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td>{(r.best_ask ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td>{(r.daily_volume ?? 0).toLocaleString()}</td>
               <td>
                 <button onClick={() => setSelected(r)}>Explain</button>
               </td>
@@ -128,7 +136,7 @@ export default function Recommendations() {
           }}
         >
           <div style={{ background: '#fff', padding: '1em', maxWidth: '400px' }}>
-            <h3>{typeNames[selected.type_id] || selected.type_id}</h3>
+            <h3>{selected.type_name || selected.type_id}</h3>
             <pre>{JSON.stringify(selected.details, null, 2)}</pre>
             <button onClick={() => setSelected(null)}>Close</button>
           </div>
