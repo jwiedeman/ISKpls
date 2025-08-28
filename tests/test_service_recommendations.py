@@ -1,13 +1,22 @@
 from fastapi.testclient import TestClient
 import sys
 from pathlib import Path
+import pytest
 
 # Ensure 'app' package is importable
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app import service, db
 from app import type_cache
-from app.config import STATION_ID
+import app.config as config
+import app.service as service_module
+
+
+@pytest.fixture(autouse=True)
+def _fresh(monkeypatch):
+    """Ensure snapshot freshness checks do not filter seeded data."""
+    monkeypatch.setattr(config, "REC_FRESH_MS", 10**12)
+    monkeypatch.setattr(service_module, "REC_FRESH_MS", 10**12)
 
 
 def _seed_recommendations(con):
@@ -19,7 +28,7 @@ def _seed_recommendations(con):
          '{"best_bid": 10.0, "best_ask": 12.0, "daily_volume": 500.0}'),
         (2, ?, '2024-01-02T00:00:00', 0.05, 0.30, 2000, '{}')
         """,
-        (STATION_ID, STATION_ID),
+        (config.STATION_ID, config.STATION_ID),
     )
     con.commit()
 
@@ -80,7 +89,7 @@ def test_list_recommendations_filters(tmp_path, monkeypatch):
     rec = data["rows"][0]
     assert rec["type_id"] == 1
     assert rec["type_name"] == "Foo"
-    assert rec["station_id"] == STATION_ID
+    assert rec["station_id"] == config.STATION_ID
     assert rec["best_bid"] == 10.0
     assert rec["best_ask"] == 12.0
     assert rec["daily_volume"] == 500.0
@@ -203,7 +212,7 @@ def test_recommendations_show_all(tmp_path, monkeypatch):
         con.close()
 
     client = TestClient(service.app)
-    resp = client.get("/recommendations", params={"all": True})
+    resp = client.get("/recommendations", params={"show_all": True})
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 2
