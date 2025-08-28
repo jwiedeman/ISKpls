@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getRecommendations,
   getWatchlist,
@@ -10,13 +10,10 @@ import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 import TypeName from '../TypeName';
 import {
-  useReactTable,
   type ColumnDef,
-  getCoreRowModel,
-  getSortedRowModel,
   type SortingState,
-  flexRender,
 } from '@tanstack/react-table';
+import DataTable from '../DataTable';
 
 interface Rec {
   type_id: number;
@@ -35,57 +32,6 @@ interface Rec {
   daily_capacity: number | null;
   details: Record<string, unknown>;
 }
-
-const columns: ColumnDef<Rec>[] = [
-  {
-    accessorKey: 'type_name',
-    header: 'Item',
-    cell: ({ row }) => `${row.original.type_name} · #${row.original.type_id}`,
-  },
-  {
-    accessorKey: 'profit_pct',
-    header: 'Profit %',
-    meta: { numeric: true },
-    cell: (info) => (info.getValue<number>() * 100).toFixed(2),
-  },
-  {
-    accessorKey: 'profit_isk',
-    header: 'Profit ISK',
-    meta: { numeric: true },
-    cell: (info) =>
-      (info.getValue<number>() ?? 0).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }),
-  },
-  { accessorKey: 'deal', header: 'Deal' },
-  { accessorKey: 'best_bid', header: 'Best Bid', meta: { numeric: true } },
-  { accessorKey: 'best_ask', header: 'Best Ask', meta: { numeric: true } },
-  {
-    accessorKey: 'mom',
-    header: 'MoM %',
-    meta: { numeric: true },
-    cell: (info) =>
-      info.getValue<number | null>() != null
-        ? (info.getValue<number>() * 100).toFixed(2)
-        : '',
-  },
-  {
-    accessorKey: 'est_daily_vol',
-    header: 'Daily Vol',
-    meta: { numeric: true },
-  },
-  {
-    accessorKey: 'fresh_ms',
-    header: 'Fresh',
-    cell: (info) => {
-      const age = info.getValue<number>() ?? 0;
-      const color = age < 120000 ? 'green' : age < 600000 ? 'yellow' : 'red';
-      return <span style={{ color }}>●</span>;
-    },
-  },
-  { accessorKey: 'last_updated', header: 'Updated' },
-];
 
 export default function Recommendations() {
   const [rows, setRows] = useState<Rec[]>([]);
@@ -139,17 +85,7 @@ export default function Recommendations() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, sorting, search, showAll, minProfit, minMom]);
 
-  const table = useReactTable({
-    data: rows,
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    manualSorting: true,
-  });
-
-  async function toggleWatchlist(id: number) {
+  const toggleWatchlist = useCallback(async (id: number) => {
     try {
       if (watchlist.has(id)) {
         await removeWatchlist(id);
@@ -165,7 +101,79 @@ export default function Recommendations() {
     } catch {
       // ignore
     }
-  }
+  }, [watchlist]);
+
+  const columns: ColumnDef<Rec>[] = useMemo(() => [
+    {
+      id: 'watch',
+      header: '★',
+      enableHiding: false,
+      cell: ({ row }) => (
+        <button
+          onClick={() => toggleWatchlist(row.original.type_id)}
+          disabled={loading}
+        >
+          {watchlist.has(row.original.type_id) ? '★' : '☆'}
+        </button>
+      ),
+    },
+    {
+      accessorKey: 'type_name',
+      header: 'Item',
+      cell: ({ row }) => `${row.original.type_name} · #${row.original.type_id}`,
+    },
+    {
+      accessorKey: 'profit_pct',
+      header: 'Profit %',
+      meta: { numeric: true },
+      cell: (info) => (info.getValue<number>() * 100).toFixed(2),
+    },
+    {
+      accessorKey: 'profit_isk',
+      header: 'Profit ISK',
+      meta: { numeric: true },
+      cell: (info) =>
+        (info.getValue<number>() ?? 0).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }),
+    },
+    { accessorKey: 'deal', header: 'Deal' },
+    { accessorKey: 'best_bid', header: 'Best Bid', meta: { numeric: true } },
+    { accessorKey: 'best_ask', header: 'Best Ask', meta: { numeric: true } },
+    {
+      accessorKey: 'mom',
+      header: 'MoM %',
+      meta: { numeric: true },
+      cell: (info) =>
+        info.getValue<number | null>() != null
+          ? (info.getValue<number>() * 100).toFixed(2)
+          : '',
+    },
+    {
+      accessorKey: 'est_daily_vol',
+      header: 'Daily Vol',
+      meta: { numeric: true },
+    },
+    {
+      accessorKey: 'fresh_ms',
+      header: 'Fresh',
+      cell: (info) => {
+        const age = info.getValue<number>() ?? 0;
+        const color = age < 120000 ? 'green' : age < 600000 ? 'yellow' : 'red';
+        return <span style={{ color }}>●</span>;
+      },
+    },
+    { accessorKey: 'last_updated', header: 'Updated' },
+    {
+      id: 'explain',
+      header: 'Explain',
+      enableHiding: false,
+      cell: ({ row }) => (
+        <button onClick={() => setSelected(row.original)}>Explain</button>
+      ),
+    },
+  ], [watchlist, loading, toggleWatchlist]);
 
   function exportCsv() {
     if (!rows.length) return;
@@ -256,60 +264,40 @@ export default function Recommendations() {
           />{' '}
           Show All
         </label>
+        {minProfit > 0 && (
+          <span
+            style={{ marginLeft: '0.5em', border: '1px solid #ccc', padding: '2px 4px' }}
+          >
+            Profit &gt; {minProfit}%
+            <button onClick={() => setMinProfit(0)} style={{ marginLeft: '0.5em' }}>
+              ×
+            </button>
+          </span>
+        )}
+        {minMom > 0 && (
+          <span
+            style={{ marginLeft: '0.5em', border: '1px solid #ccc', padding: '2px 4px' }}
+          >
+            MoM &gt; {minMom}%
+            <button onClick={() => setMinMom(0)} style={{ marginLeft: '0.5em' }}>
+              ×
+            </button>
+          </span>
+        )}
       </div>
-      <table>
-        <thead>
-          {table.getHeaderGroups().map((hg) => (
-            <tr key={hg.id}>
-              <th>★</th>
-              {hg.headers.map((header) => (
-                <th
-                  key={header.id}
-                  onClick={header.column.getToggleSortingHandler?.()}
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : (header.column.columnDef.header as string)}
-                </th>
-              ))}
-              <th>Explain</th>
-            </tr>
-          ))}
-        </thead>
-        <tbody>
-          {table.getRowModel().rows.length === 0 && !loading ? (
-            <tr>
-              <td colSpan={columns.length + 2} style={{ textAlign: 'center' }}>
-                No recommendations found. Try adjusting filters or run the
-                build job.
-              </td>
-            </tr>
-          ) : (
-            table.getRowModel().rows.map((row) => (
-              <tr key={row.original.type_id}>
-                <td>
-                  <button
-                    onClick={() => toggleWatchlist(row.original.type_id)}
-                    disabled={loading}
-                  >
-                    {watchlist.has(row.original.type_id) ? '★' : '☆'}
-                  </button>
-                </td>
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-                <td>
-                  <button onClick={() => setSelected(row.original)}>
-                    Explain
-                  </button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+      {rows.length === 0 && !loading ? (
+        <div style={{ textAlign: 'center', marginTop: '1em' }}>
+          No recommendations found. Try adjusting filters or run the build job.
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={rows}
+          sorting={sorting}
+          onSortingChange={setSorting}
+          stickyHeader
+        />
+      )}
       <div style={{ marginTop: '1em' }}>
         <button
           disabled={page === 0}

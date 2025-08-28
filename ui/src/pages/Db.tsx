@@ -2,15 +2,9 @@ import { useEffect, useState } from 'react';
 import { getDbItems, type DbItem } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
-import {
-  useReactTable,
-  type ColumnDef,
-  getCoreRowModel,
-  getSortedRowModel,
-  type SortingState,
-  flexRender,
-} from '@tanstack/react-table';
+import { type ColumnDef, type SortingState } from '@tanstack/react-table';
 import TypeName from '../TypeName';
+import DataTable from '../DataTable';
 
 const columns: ColumnDef<DbItem>[] = [
   {
@@ -104,16 +98,6 @@ export default function Db() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sorting, search, minProfit, dealFilters]);
 
-  const table = useReactTable({
-    data: rows,
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    manualSorting: true,
-  });
-
   function toggleDeal(d: string) {
     setDealFilters((prev) =>
       prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
@@ -206,36 +190,24 @@ export default function Db() {
         >
           Export CSV
         </button>
+        {minProfit > 0 && (
+          <span
+            style={{ marginLeft: '0.5em', border: '1px solid #ccc', padding: '2px 4px' }}
+          >
+            Profit &gt; {minProfit}%
+            <button onClick={() => setMinProfit(0)} style={{ marginLeft: '0.5em' }}>
+              ×
+            </button>
+          </span>
+        )}
       </div>
-      <table>
-        <thead>
-          {table.getHeaderGroups().map((hg) => (
-            <tr key={hg.id}>
-              {hg.headers.map((header) => (
-                <th
-                  key={header.id}
-                  onClick={header.column.getToggleSortingHandler?.()}
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : (header.column.columnDef.header as string)}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody>
-          {table.getRowModel().rows.map((row) => (
-            <tr key={row.original.type_id}>
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable
+        columns={columns}
+        data={rows}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        stickyHeader
+      />
     </div>
   );
 }
