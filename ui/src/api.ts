@@ -50,8 +50,10 @@ export async function updateSettings(settings: Record<string, unknown>) {
   return res.json();
 }
 
-export async function runJob(name: string) {
-  const res = await fetch(`${API_BASE}/jobs/${name}/run`, { method: 'POST' });
+export async function runJob(name: string, verbose = false) {
+  const url = new URL(`${API_BASE}/jobs/${name}/run`);
+  if (verbose) url.searchParams.set('verbose', 'true');
+  const res = await fetch(url.toString(), { method: 'POST' });
   if (!res.ok) throw new Error('Failed to run job');
   return res.json();
 }
