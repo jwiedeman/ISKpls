@@ -8,8 +8,16 @@ interface Props {
 }
 
 export default function RunwayPanel({ connected, events }: Props) {
-  const { inflightList, recentJobs, recentBuilds, pending, esi, queue, logs } =
-    useRunwayVM(events);
+  const {
+    inflightList,
+    buildInflight,
+    recentJobs,
+    recentBuilds,
+    pending,
+    esi,
+    queue,
+    logs,
+  } = useRunwayVM(events);
   const dotStyle: React.CSSProperties = {
     width: 10,
     height: 10,
@@ -30,10 +38,20 @@ export default function RunwayPanel({ connected, events }: Props) {
       </div>
       <h3>Now Running</h3>
       <ul>
-        {inflightList.length === 0 && <li>None</li>}
+        {inflightList.length === 0 && buildInflight.length === 0 && <li>None</li>}
         {inflightList.map((j) => (
           <li key={j.runId} title={j.detail}>
-            <strong>{j.job}</strong> {j.progress}% {trunc(j.detail ?? "")}
+            <strong>{j.job}</strong> {j.progress}%
+            {typeof j.done === "number" &&
+            typeof (j.total ?? j.meta?.total) === "number" ? (
+              <> {j.done}/{j.total ?? j.meta?.total}</>
+            ) : null}{" "}
+            {trunc(j.detail ?? "")}
+          </li>
+        ))}
+        {buildInflight.map((b) => (
+          <li key={b.buildId} title={b.detail}>
+            <strong>{b.job}</strong> {b.progress}% {b.stage} {trunc(b.detail ?? "")}
           </li>
         ))}
       </ul>

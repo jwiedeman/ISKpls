@@ -14,12 +14,24 @@ export interface RunwayEvent {
   buildId?: string;
   job?: string;
   progress?: number;
+  meta?: Record<string, unknown>;
+  phase?: string;
   detail?: string;
   level?: string;
   message?: string;
   stage?: string;
   ok?: boolean;
   itemsWritten?: number;
+  items_written?: number;
+  unique_types_touched?: number;
+  median_snapshot_age_ms?: number;
+  errors?: number;
+  tiers?: Record<string, number>;
+  selected?: number;
+  workers?: number;
+  expected_pages?: number;
+  done?: number;
+  total?: number;
   rows?: number;
   ms?: number;
   error?: string;
@@ -27,7 +39,7 @@ export interface RunwayEvent {
   reset?: number;
   depth?: Record<string, number>;
   pending?: PendingJob[];
-  done?: boolean;
+  finished?: boolean;
   polled?: boolean;
 }
 
