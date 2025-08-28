@@ -67,8 +67,6 @@ const columns: ColumnDef<DbItem>[] = [
 
 export default function Db() {
   const [rows, setRows] = useState<DbItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(0);
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'last_updated', desc: true },
   ]);
@@ -85,7 +83,7 @@ export default function Db() {
       const dir = sorting[0]?.desc ? 'desc' : 'asc';
       const data = await getDbItems({
         limit: 50,
-        offset: page * 50,
+        offset: 0,
         sort,
         dir,
         search,
@@ -93,7 +91,6 @@ export default function Db() {
         deal: dealFilters,
       });
       setRows(data.rows || []);
-      setTotal(data.total || 0);
       setError('');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -105,7 +102,7 @@ export default function Db() {
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, sorting, search, minProfit, dealFilters]);
+  }, [sorting, search, minProfit, dealFilters]);
 
   const table = useReactTable({
     data: rows,
