@@ -140,6 +140,7 @@ export interface DbItem {
   deal: string;
   mom?: number | null;
   est_daily_vol?: number | null;
+  has_both_sides: boolean;
 }
 
 export async function getOpenOrders(limit = 100, search = '') {

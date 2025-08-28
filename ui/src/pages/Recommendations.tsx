@@ -31,6 +31,7 @@ interface Rec {
   uplift_mom: number | null;
   daily_capacity: number | null;
   details: Record<string, unknown>;
+  has_both_sides: boolean;
 }
 
 export default function Recommendations() {
@@ -126,7 +127,14 @@ export default function Recommendations() {
       accessorKey: 'profit_pct',
       header: 'Profit %',
       meta: { numeric: true },
-      cell: (info) => (info.getValue<number>() * 100).toFixed(2),
+      cell: ({ row, getValue }) => {
+        const val = (getValue<number>() * 100).toFixed(2) + '%';
+        return (
+          <span style={{ color: row.original.has_both_sides ? undefined : 'gray' }}>
+            {val}
+          </span>
+        );
+      },
     },
     {
       accessorKey: 'profit_isk',
