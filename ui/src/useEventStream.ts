@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { getStatus } from "./api";
 import type { StatusSnapshot } from "./api";
 
+export interface PendingJob {
+  job: string;
+  runId: string;
+  queued_at: string;
+}
+
 export interface RunwayEvent {
   type: string;
   runId?: string;
@@ -20,6 +26,7 @@ export interface RunwayEvent {
   remain?: number;
   reset?: number;
   depth?: Record<string, number>;
+  pending?: PendingJob[];
   done?: boolean;
   polled?: boolean;
 }
