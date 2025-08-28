@@ -166,3 +166,26 @@ def test_recommendations_search(tmp_path, monkeypatch):
     assert len(data) == 1
     assert data[0]["type_id"] == 2
 
+
+def test_recommendations_without_type_entries(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.sqlite3")
+    db.init_db()
+    con = db.connect()
+    try:
+        _seed_trends(con)
+        _seed_recommendations(con)
+        _seed_snapshots(con)
+        # deliberately omit _seed_types
+    finally:
+        con.close()
+
+    # avoid external calls for type names
+    monkeypatch.setattr(service, "get_type_name", lambda tid: f"Type{tid}")
+
+    client = TestClient(service.app)
+    resp = client.get("/recommendations")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 2
+    assert {r["type_id"] for r in data["rows"]} == {1, 2}
+

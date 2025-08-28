@@ -252,7 +252,7 @@ def list_recommendations(
     ]
     params: list[Any] = [min_net, min_mom, min_vol]
     join = (
-        " JOIN types ON recommendations.type_id = types.type_id"
+        " LEFT JOIN types ON recommendations.type_id = types.type_id"
         " LEFT JOIN type_trends tr ON tr.type_id = recommendations.type_id"
     )
     if category is not None:
