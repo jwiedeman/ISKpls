@@ -89,6 +89,12 @@ export async function getPortfolioNav() {
   return res.json();
 }
 
+export async function getPortfolioSummary(basis: 'mark' | 'quicksell' = 'mark') {
+  const res = await fetch(`${API_BASE}/portfolio/summary?basis=${basis}`);
+  if (!res.ok) throw new Error('Failed to fetch portfolio summary');
+  return res.json();
+}
+
 export async function recomputeValuations() {
   const res = await fetch(`${API_BASE}/valuations/recompute`, { method: 'POST' });
   if (!res.ok) throw new Error('Failed to recompute valuations');
