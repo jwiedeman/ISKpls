@@ -42,6 +42,7 @@ class Job:
     func: Callable[..., Any]
     args: tuple = ()
     kwargs: dict = field(default_factory=dict)
+    priority: str = "P2"
 
 
 def _refresh_snapshot() -> None:
@@ -54,9 +55,18 @@ def enqueue(name: str, func: Callable[..., Any], priority: str = "P2", *args, **
 
     global _counter
     prio = _PRIORITY.get(priority, 3)
-    heapq.heappush(_queue, (prio, _counter, Job(name, func, args, kwargs)))
+    heapq.heappush(_queue, (prio, _counter, Job(name, func, args, kwargs, priority)))
     _counter += 1
     _refresh_snapshot()
+
+
+def queue_depth() -> Dict[str, int]:
+    """Return current queued job counts by priority class."""
+
+    counts = {p: 0 for p in _PRIORITY.keys()}
+    for _, _, job in _queue:
+        counts[job.priority] += 1
+    return counts
 
 
 def run_next_job() -> bool:

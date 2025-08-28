@@ -27,6 +27,7 @@ def test_status_returns_queue_and_counts(tmp_path, monkeypatch):
     assert data["jobs"][0]["name"] == "sample"
     assert data["jobs"][0]["ok"] is True
     assert data["queue"] == ["refresh_assets", "recs"]
+    assert data["queue_depth"] == {"P0": 0, "P1": 1, "P2": 1, "P3": 0}
     assert data["in_flight"]["name"] == "sync"
     assert data["counts"]["10m"] == 1
     assert data["counts"]["1h"] == 1
