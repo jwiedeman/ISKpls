@@ -5,32 +5,21 @@ from pathlib import Path
 # Ensure 'app' package importable
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from app import service, db, jobs, esi
+from app import service
+from app.status import STATUS
 
 
-def test_status_returns_queue_and_counts(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.sqlite3")
-    db.init_db()
-    jobs.record_job("sample", True, {"info": 1})
-    jobs.clear_queue()
-    jobs.enqueue("refresh_assets", lambda: None, priority="P1")
-    jobs.enqueue("recs", lambda: None, priority="P2")
-    jobs.IN_FLIGHT = {"name": "sync", "started": "2024-01-01T00:00:00"}
-    esi.ERROR_LIMIT_REMAIN = 88
-    esi.ERROR_LIMIT_RESET = 17
-
+def test_status_returns_cache():
     client = TestClient(service.app)
+    STATUS["inflight"] = [{"job": "sample", "id": "j-1"}]
+    STATUS["last_runs"] = [{"job": "sync", "ok": True, "ts": "2024-01-01T00:00:00Z", "ms": 100}]
+    STATUS["counts"] = {"jobs_10m": 1}
+    STATUS["esi"] = {"remain": 100, "reset": 10}
+
     resp = client.get("/status")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data["jobs"]) == 1
-    assert data["jobs"][0]["name"] == "sample"
-    assert data["jobs"][0]["ok"] is True
-    assert data["queue"] == ["refresh_assets", "recs"]
-    assert data["queue_depth"] == {"P0": 0, "P1": 1, "P2": 1, "P3": 0}
-    assert data["in_flight"]["name"] == "sync"
-    assert data["counts"]["10m"] == 1
-    assert data["counts"]["1h"] == 1
-    assert data["counts"]["24h"] == 1
-    assert data["esi"]["error_limit_remain"] == 88
-    assert data["esi"]["error_limit_reset"] == 17
+    assert data["inflight"][0]["job"] == "sample"
+    assert data["last_runs"][0]["job"] == "sync"
+    assert data["counts"]["jobs_10m"] == 1
+    assert data["esi"]["remain"] == 100

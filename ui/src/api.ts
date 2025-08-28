@@ -1,11 +1,13 @@
 export const API_BASE = 'http://localhost:8000';
 
-export interface StatusResp {
-  jobs: { name: string; ts_utc: string; ok: boolean }[];
-  esi: { error_limit_remain: number; error_limit_reset: number };
+export interface StatusSnapshot {
+  inflight: unknown[];
+  last_runs: { job: string; ok: boolean; ts?: string; ms?: number }[];
+  counts: Record<string, number>;
+  esi: { remain?: number; reset?: number };
 }
 
-export async function getStatus(): Promise<StatusResp> {
+export async function getStatus(): Promise<StatusSnapshot> {
   const res = await fetch(`${API_BASE}/status`);
   if (!res.ok) throw new Error('Failed to fetch status');
   return res.json();
@@ -33,14 +35,28 @@ export async function runJob(name: string) {
   return res.json();
 }
 
-export async function getRecommendations(limit = 50, minNet = 0, minMom = 0, search = '') {
-  const params = new URLSearchParams({
-    limit: String(limit),
-    min_net: String(minNet),
-    min_mom: String(minMom),
-  });
-  if (search) params.set('search', search);
-  const res = await fetch(`${API_BASE}/recommendations?${params.toString()}`);
+export interface RecParams {
+  limit?: number;
+  offset?: number;
+  sort?: string;
+  dir?: string;
+  search?: string;
+  min_net?: number;
+  min_mom?: number;
+  min_vol?: number;
+}
+
+export async function getRecommendations(params: RecParams = {}) {
+  const qs = new URLSearchParams();
+  if (params.limit !== undefined) qs.set('limit', String(params.limit));
+  if (params.offset !== undefined) qs.set('offset', String(params.offset));
+  if (params.sort) qs.set('sort', params.sort);
+  if (params.dir) qs.set('dir', params.dir);
+  if (params.search) qs.set('search', params.search);
+  if (params.min_net !== undefined) qs.set('min_net', String(params.min_net));
+  if (params.min_mom !== undefined) qs.set('min_mom', String(params.min_mom));
+  if (params.min_vol !== undefined) qs.set('min_vol', String(params.min_vol));
+  const res = await fetch(`${API_BASE}/recommendations?${qs.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch recommendations');
   return res.json();
 }
