@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getRecommendations, getWatchlist, addWatchlist, removeWatchlist } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
+import TypeName from '../TypeName';
 
 interface Rec {
   type_id: number;
@@ -106,7 +107,7 @@ export default function Recommendations() {
                   {watchlist.has(r.type_id) ? '★' : '☆'}
                 </button>
               </td>
-              <td>{r.type_name || r.type_id}</td>
+              <td><TypeName id={r.type_id} name={r.type_name} /></td>
               <td>{(r.net_pct * 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               <td>{(r.uplift_mom * 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               <td>{Math.round(r.daily_capacity).toLocaleString()}</td>
@@ -136,7 +137,7 @@ export default function Recommendations() {
           }}
         >
           <div style={{ background: '#fff', padding: '1em', maxWidth: '400px' }}>
-            <h3>{selected.type_name || selected.type_id}</h3>
+            <h3><TypeName id={selected.type_id} name={selected.type_name} /></h3>
             <pre>{JSON.stringify(selected.details, null, 2)}</pre>
             <button onClick={() => setSelected(null)}>Close</button>
           </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getOpenOrders, getOrderHistory } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
+import TypeName from '../TypeName';
 
 interface Order {
   order_id: number;
@@ -70,7 +71,7 @@ export default function Orders() {
           {openOrders.map(o => (
             <tr key={o.order_id}>
               <td>{o.order_id}</td>
-              <td>{o.type_name || o.type_id}</td>
+              <td><TypeName id={o.type_id} name={o.type_name} /></td>
               <td>{o.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               <td>{(o.fill_pct * 100).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
               <td>{o.escrow.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -94,7 +95,7 @@ export default function Orders() {
           {history.map(o => (
             <tr key={o.order_id}>
               <td>{o.order_id}</td>
-              <td>{o.type_name || o.type_id}</td>
+              <td><TypeName id={o.type_id} name={o.type_name} /></td>
               <td>{o.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               <td>{(o.fill_pct * 100).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
               <td>{o.state}</td>
