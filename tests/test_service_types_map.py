@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app import service, db
+from app import type_cache
 
 
 def _seed_types(con):
@@ -33,3 +34,30 @@ def test_types_map(tmp_path, monkeypatch):
     data = resp.json()
     assert data["1"] == "Foo"
     assert data["2"] == "Bar"
+
+
+def test_types_map_fetches_unknown_ids(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.sqlite3")
+    db.init_db()
+    type_cache._type_name_cache = None
+
+    def fake_fetch(ids):
+        return {545: "Widget"} if 545 in ids else {}
+
+    monkeypatch.setattr(type_cache, "_fetch_names_from_esi", fake_fetch)
+
+    client = TestClient(service.app)
+    resp = client.get("/types/map", params={"ids": "545"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["545"] == "Widget"
+
+    # Ensure name was cached in the database
+    con = db.connect()
+    try:
+        row = con.execute(
+            "SELECT name FROM types WHERE type_id=545"
+        ).fetchone()
+    finally:
+        con.close()
+    assert row[0] == "Widget"
