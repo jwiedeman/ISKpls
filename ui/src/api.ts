@@ -4,7 +4,7 @@ export interface StatusSnapshot {
   inflight?: unknown[];
   last_runs?: { job: string; ok: boolean; ts?: string; ms?: number }[];
   counts?: Record<string, number>;
-  esi: { remain?: number; reset?: number };
+  esi?: { remain?: number; reset?: number };
   queue?: Record<string, number>;
 }
 
