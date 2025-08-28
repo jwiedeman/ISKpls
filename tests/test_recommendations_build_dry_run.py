@@ -42,14 +42,12 @@ def test_recommendations_build_dry_run(tmp_path, monkeypatch):
 
     # stub evaluate_type to avoid network
     def fake_eval(tid):
-        if tid in (1, 2):
-            return {
-                "type_id": tid,
-                "net_spread_pct": 0.05,
-                "uplift_mom": 0.2,
-                "daily_isk_capacity": 1000,
-            }
-        return None
+        return {
+            "type_id": tid,
+            "net_spread_pct": 0.05,
+            "uplift_mom": 0.2,
+            "daily_isk_capacity": 1000,
+        }
 
     monkeypatch.setattr(recommender, "evaluate_type", fake_eval)
 
@@ -61,8 +59,8 @@ def test_recommendations_build_dry_run(tmp_path, monkeypatch):
     assert data["fresh_pass"] == 1
     assert data["vol_pass"] == 3
     assert data["mom_pass"] == 2
-    assert data["scored"] == 2
-    assert data["would_write"] == 2
+    assert data["scored"] == 3
+    assert data["would_write"] == 3
 
     # ensure no rows written
     con = db.connect()

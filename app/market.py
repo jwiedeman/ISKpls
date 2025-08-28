@@ -9,10 +9,7 @@ from .config import (
     BROKER_SELL,
     BROKER_BUY,
     RELIST_HAIRCUT,
-    MOM_THRESHOLD,
     MIN_DAYS_TRADED,
-    MIN_DAILY_VOL,
-    SPREAD_BUFFER,
     VENUE,
 )
 
@@ -75,21 +72,22 @@ def mom_uplift(df):
 def evaluate_type(type_id):
     reg_id = REGION_ID if REGION_ID else station_region_id(STATION_ID)
     df = region_history(type_id, reg_id)
-    if df.empty or df["volume"].tail(30).mean() < MIN_DAILY_VOL:
+    if df.empty:
         return None
     uplift = mom_uplift(df)
-    if uplift is None or uplift < MOM_THRESHOLD:
-        return None
     bid, ask = best_bid_ask_station(type_id, STATION_ID, reg_id)
     if bid is None or ask is None:
         return None
     net = margin_after_fees(buy_px=bid, sell_px=ask)
-    net_pct = net / bid
-    break_even = (1 + BROKER_BUY) / (1 - SALES_TAX - BROKER_SELL) - 1
-    if net_pct < (break_even + SPREAD_BUFFER):
+    if bid == 0:
         return None
-    daily_vol = df.tail(30)["volume"].mean()
-    daily_isk = daily_vol * df.tail(7)["average"].mean()
+    net_pct = net / bid
+    # Gate only on positive profit after fees
+    if net_pct <= 0:
+        return None
+    daily_vol = df.tail(30)["volume"].mean() if len(df) else 0.0
+    avg_series = df.tail(7)["average"] if len(df) else []
+    daily_isk = daily_vol * (avg_series.mean() if len(avg_series) else 0.0)
     return {
         "type_id": type_id,
         "uplift_mom": uplift,
