@@ -58,6 +58,18 @@ export async function runJob(name: string, verbose = false) {
   return res.json();
 }
 
+export async function buildRecommendations(
+  dryRun = false,
+  verbose = false,
+) {
+  const url = new URL(`${API_BASE}/recommendations/build`);
+  if (dryRun) url.searchParams.set('dry_run', 'true');
+  if (verbose) url.searchParams.set('verbose', 'true');
+  const res = await fetch(url.toString(), { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to build recommendations');
+  return res.json();
+}
+
 export interface RecParams {
   limit?: number;
   offset?: number;
