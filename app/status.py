@@ -4,7 +4,13 @@ from typing import Any, Dict, Set
 status_router = APIRouter()
 
 # cache filled by scheduler
-STATUS: Dict[str, Any] = {"inflight": [], "last_runs": [], "counts": {}, "esi": {}}
+STATUS: Dict[str, Any] = {
+    "inflight": [],
+    "last_runs": [],
+    "counts": {},
+    "esi": {},
+    "queue": {},
+}
 WS_CLIENTS: Set[WebSocket] = set()
 
 @status_router.get("/status")
