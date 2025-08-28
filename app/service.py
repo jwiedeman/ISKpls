@@ -328,8 +328,118 @@ def legacy_list_recommendations(
     search: str | None,
     show_all: bool,
 ):
-    """Placeholder for legacy recommendation logic."""
-    return {"rows": [], "total": 0}
+    """Return recommendations using legacy gating on freshness, MoM, and volume."""
+    settings = get_settings()
+    fees = Fees(
+        buy_total=settings["BROKER_BUY"],
+        sell_total=settings["SALES_TAX"]
+        + settings["BROKER_SELL"]
+        + settings["RELIST_HAIRCUT"],
+    )
+    thresholds = settings["DEAL_THRESHOLDS"]
+    if min_mom == 0.0:
+        min_mom = settings["MOM_THRESHOLD"]
+    if min_vol == 0.0:
+        min_vol = settings["MIN_DAILY_VOL"]
+    con = connect()
+    try:
+        where: list[str] = []
+        params: list[Any] = []
+        if category is not None:
+            where.append("types.category_id = ?")
+            params.append(category)
+        if meta is not None:
+            where.append("COALESCE(types.meta_level,0) >= ?")
+            params.append(meta)
+        if search:
+            if search.isdigit():
+                where.append("(lp.type_id = ? OR types.name LIKE ?)")
+                params.extend([int(search), f"%{search}%"])
+            else:
+                where.append("types.name LIKE ?")
+                params.append(f"%{search}%")
+        join_rec = "LEFT JOIN recommendations r ON r.type_id = lp.type_id"
+        if not show_all:
+            where.append("r.type_id IS NOT NULL")
+        where_clause = " AND ".join(where) if where else "1=1"
+        rows = con.execute(
+            f"""
+            SELECT lp.type_id, types.name, lp.best_bid, lp.best_ask, lp.last_updated,
+                   tr.mom_pct, tr.vol_30d_avg, r.net_pct, r.uplift_mom,
+                   r.daily_capacity, r.rationale_json
+            FROM latest_prices_v lp
+            {join_rec}
+            LEFT JOIN types ON lp.type_id = types.type_id
+            LEFT JOIN type_trends tr ON tr.type_id = lp.type_id
+            WHERE {where_clause}
+            """,
+            params,
+        ).fetchall()
+    finally:
+        con.close()
+    now = datetime.utcnow()
+    results = []
+    for (
+        tid,
+        tname,
+        bid,
+        ask,
+        ts,
+        mom,
+        vol,
+        net_pct,
+        uplift_mom,
+        daily_cap,
+        rationale,
+    ) in rows:
+        profit_isk, profit_pct = compute_profit(bid, ask, fees, tick)
+        if profit_pct < min_profit_pct:
+            continue
+        if mom is None or mom < min_mom:
+            continue
+        if vol is None or vol < min_vol:
+            continue
+        last_dt = datetime.fromisoformat(ts)
+        fresh_ms = int((now - last_dt).total_seconds() * 1000)
+        if fresh_ms > REC_FRESH_MS:
+            continue
+        label = deal_label(profit_pct, thresholds=thresholds)
+        try:
+            details = json.loads(rationale) if rationale else {}
+        except json.JSONDecodeError:
+            details = {}
+        results.append(
+            {
+                "type_id": tid,
+                "type_name": tname or get_type_name(tid),
+                "best_bid": bid,
+                "best_ask": ask,
+                "last_updated": ts,
+                "fresh_ms": fresh_ms,
+                "profit_pct": profit_pct,
+                "profit_isk": profit_isk,
+                "deal": label,
+                "mom": mom,
+                "est_daily_vol": vol,
+                "net_pct": net_pct,
+                "uplift_mom": uplift_mom,
+                "daily_capacity": daily_cap,
+                "details": details,
+            }
+        )
+    allowed = {
+        "last_updated": "last_updated",
+        "type_name": "type_name",
+        "best_bid": "best_bid",
+        "best_ask": "best_ask",
+        "profit_pct": "profit_pct",
+    }
+    key = allowed.get(sort, "profit_pct")
+    reverse = dir.lower() != "asc"
+    results.sort(key=lambda r: (r[key] is None, r[key]), reverse=reverse)
+    total = len(results)
+    sliced = results[offset : offset + limit]
+    return {"rows": sliced, "total": total}
 
 
 @app.get("/recommendations")
