@@ -64,6 +64,40 @@ export default function Recommendations() {
     }
   }
 
+  function exportCsv() {
+    if (!recs.length) return;
+    const headers = [
+      'type_id',
+      'type_name',
+      'net_pct',
+      'uplift_mom',
+      'daily_capacity',
+      'best_bid',
+      'best_ask',
+      'daily_volume',
+      'ts_utc',
+    ];
+    const rows = recs.map(r => [
+      r.type_id,
+      r.type_name,
+      r.net_pct,
+      r.uplift_mom,
+      r.daily_capacity,
+      r.best_bid ?? '',
+      r.best_ask ?? '',
+      r.daily_volume ?? '',
+      r.ts_utc,
+    ]);
+    const csv = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'recommendations.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,6 +125,13 @@ export default function Recommendations() {
           />
         </label>
         <button style={{ marginLeft: '1em' }} onClick={refresh} disabled={loading}>Refresh</button>
+        <button
+          style={{ marginLeft: '1em' }}
+          onClick={exportCsv}
+          disabled={!recs.length}
+        >
+          Export CSV
+        </button>
       </div>
       <table>
         <thead>
