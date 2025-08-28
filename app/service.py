@@ -11,7 +11,7 @@ from .valuation import compute_portfolio_snapshot, refresh_type_valuations
 from .esi import get_error_limit_status
 from .auth import get_token, token_status
 from .scheduler_config import get_scheduler_settings, update_scheduler_settings
-from .type_cache import get_type_name, refresh_type_name_cache
+from .type_cache import get_type_name, refresh_type_name_cache, ensure_type_names
 import json
 
 
@@ -114,21 +114,14 @@ def types_map(ids: str | None = None):
 
     If ``ids`` query parameter is provided, it should be a comma-separated
     list of type IDs to look up. Otherwise all known types are returned.
+    Unknown IDs are looked up via ESI and cached in the database.
     """
+    if ids:
+        id_list = [int(i) for i in ids.split(",") if i]
+        return ensure_type_names(id_list)
     con = connect()
     try:
-        if ids:
-            id_list = [int(i) for i in ids.split(",") if i]
-            if id_list:
-                placeholders = ",".join("?" for _ in id_list)
-                rows = con.execute(
-                    f"SELECT type_id, name FROM types WHERE type_id IN ({placeholders})",
-                    id_list,
-                ).fetchall()
-            else:
-                rows = []
-        else:
-            rows = con.execute("SELECT type_id, name FROM types").fetchall()
+        rows = con.execute("SELECT type_id, name FROM types").fetchall()
     finally:
         con.close()
     return {tid: name for tid, name in rows}

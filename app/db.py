@@ -62,6 +62,8 @@ CREATE TABLE IF NOT EXISTS char_orders (
   state TEXT DEFAULT 'open'
 );
 
+CREATE INDEX IF NOT EXISTS idx_char_orders_type ON char_orders(type_id);
+
 CREATE TABLE IF NOT EXISTS assets (
   item_id INTEGER PRIMARY KEY,
   type_id INTEGER,
@@ -73,11 +75,15 @@ CREATE TABLE IF NOT EXISTS assets (
   updated TEXT
 );
 
+CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(type_id);
+
 CREATE TABLE IF NOT EXISTS types (
   type_id INTEGER PRIMARY KEY,
   name TEXT,
   group_id INTEGER
 );
+
+CREATE INDEX IF NOT EXISTS idx_types_name ON types(name);
 
 CREATE TABLE IF NOT EXISTS type_valuations (
   type_id INTEGER PRIMARY KEY,
@@ -125,6 +131,8 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
   PRIMARY KEY (ts_utc, type_id)
 );
 
+CREATE INDEX IF NOT EXISTS idx_market_snapshots_type ON market_snapshots(type_id);
+
 CREATE TABLE IF NOT EXISTS type_trends (
   type_id INTEGER PRIMARY KEY,
   last_history_ts TEXT,
@@ -161,6 +169,8 @@ CREATE TABLE IF NOT EXISTS recommendations (
   rationale_json TEXT,
   PRIMARY KEY (type_id, ts_utc)
 );
+
+CREATE INDEX IF NOT EXISTS idx_recommendations_type ON recommendations(type_id);
 
 CREATE TABLE IF NOT EXISTS watchlist (
   type_id INTEGER PRIMARY KEY,
