@@ -47,3 +47,10 @@ def test_snipes_endpoint(tmp_path, monkeypatch):
     assert s["best_bid"] == 100.0
     assert s["best_ask"] == 80.0
     assert s["net_pct"] > 0
+    assert "z_score" in s
+    assert s["units"] == 10
+
+    # min_net filter should drop the candidate when threshold too high
+    resp = client.get("/snipes", params={"min_net": 0.5})
+    assert resp.status_code == 200
+    assert resp.json()["snipes"] == []

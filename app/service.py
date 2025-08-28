@@ -13,7 +13,7 @@ from .auth import get_token, token_status
 from .scheduler_config import get_scheduler_settings, update_scheduler_settings
 from .type_cache import get_type_name, refresh_type_name_cache, ensure_type_names
 from .snipes import find_snipes
-from .config import SNIPE_EPSILON
+from .config import SNIPE_EPSILON, SNIPE_Z, SPREAD_BUFFER
 import json
 
 
@@ -180,9 +180,23 @@ def remove_watchlist(type_id: int):
 
 
 @app.get("/snipes")
-def list_snipes(limit: int = 20, epsilon: float = SNIPE_EPSILON):
-    """Return potential underpriced sell orders for quick flips."""
-    return {"snipes": find_snipes(limit=limit, epsilon=epsilon)}
+def list_snipes(
+    limit: int = 20,
+    epsilon: float = SNIPE_EPSILON,
+    min_net: float = SPREAD_BUFFER,
+    z: float = SNIPE_Z,
+):
+    """Return potential underpriced sell orders for quick flips.
+
+    ``epsilon`` controls how close the ask must be to the bid for instant flip
+    candidates, ``min_net`` filters by minimum net percentage after fees, and
+    ``z`` is the z-score threshold for anomaly detection.
+    """
+    return {
+        "snipes": find_snipes(
+            limit=limit, epsilon=epsilon, min_net=min_net, z_thresh=z
+        )
+    }
 
 
 @app.get("/recommendations")
