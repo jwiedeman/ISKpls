@@ -12,7 +12,9 @@ def test_status_returns_queue_and_counts(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.sqlite3")
     db.init_db()
     jobs.record_job("sample", True, {"info": 1})
-    jobs.JOB_QUEUE = ["refresh_assets", "recs"]
+    jobs.clear_queue()
+    jobs.enqueue("refresh_assets", lambda: None, priority="P1")
+    jobs.enqueue("recs", lambda: None, priority="P2")
     jobs.IN_FLIGHT = {"name": "sync", "started": "2024-01-01T00:00:00"}
     esi.ERROR_LIMIT_REMAIN = 88
     esi.ERROR_LIMIT_RESET = 17
