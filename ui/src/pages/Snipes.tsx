@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getSnipes, Snipe } from '../api';
+import { getSnipes, type Snipe } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 import TypeName from '../TypeName';
