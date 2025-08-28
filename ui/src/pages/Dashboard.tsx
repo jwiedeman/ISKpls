@@ -65,7 +65,7 @@ export default function Dashboard() {
       <ErrorBanner message={error} />
       {loading && <Spinner />}
       {esi && (
-        <p>ESI Error Limit: {esi.error_limit_remain} (reset {esi.error_limit_reset}s)</p>
+        <p>ESI Error Limit: {esi.remain} (reset {esi.reset}s)</p>
       )}
       <button disabled={loading} onClick={() => run('scheduler_tick')}>Run Scheduler</button>
       <button disabled={loading} onClick={() => run('recommendations')}>Build Recommendations</button>

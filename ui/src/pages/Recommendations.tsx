@@ -9,6 +9,7 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   type SortingState,
+  flexRender,
 } from '@tanstack/react-table';
 
 interface Rec {
@@ -168,7 +169,7 @@ export default function Recommendations() {
                 </button>
               </td>
               {row.getVisibleCells().map(cell => (
-                <td key={cell.id}>{cell.renderCell()}</td>
+                <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
               ))}
               <td><button onClick={() => setSelected(row.original)}>Explain</button></td>
             </tr>
