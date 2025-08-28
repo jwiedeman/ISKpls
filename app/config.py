@@ -14,3 +14,7 @@ MIN_DAYS_TRADED = 26
 MIN_DAILY_VOL = 100
 SPREAD_BUFFER = 0.02
 SNIPE_EPSILON = 0.002
+# Z-score threshold for anomaly-based snipes
+SNIPE_Z = 3.0
+# Minimum percentage drop from rolling median for anomaly detection
+SNIPE_DELTA = 0.10

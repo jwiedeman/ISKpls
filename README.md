@@ -84,7 +84,7 @@ The service provides endpoints such as:
 - `POST /jobs/scheduler_tick/run` – process due market snapshots
 - `GET /auth/status` – check whether SSO token is cached
 - `POST /auth/connect` – initiate the EVE SSO flow
-- `GET /snipes` – detect underpriced sell orders
+- `GET /snipes` – detect underpriced sell orders (supports `limit`, `epsilon`, `min_net`, `z`)
 - Most responses include `type_name` alongside `type_id`
 
 ### Frontend UI
