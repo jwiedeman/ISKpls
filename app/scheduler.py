@@ -6,7 +6,8 @@ from threading import Lock
 from .db import connect
 from .jita_snapshots import refresh_one
 from .jobs import record_job
-from .status import emit_sync, STATUS
+from .status import STATUS
+from .emit import job_started, job_progress, job_finished, emit_sync
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +83,7 @@ def run_tick(max_calls: int = 800, workers: int = 6) -> None:
 
     count = len(due)
     logger.info("%s types due for refresh", count)
-    job_id = f"j-{uuid.uuid4().hex[:5]}"
-    emit_sync({"type": "job_started", "job": "scheduler_tick", "id": job_id, "meta": {"total": count}})
+    run_id = job_started("scheduler_tick", {"total": count})
 
     t0 = time.time()
     lock = Lock()
@@ -100,7 +100,7 @@ def run_tick(max_calls: int = 800, workers: int = 6) -> None:
         with lock:
             completed += 1
             pct = int(completed / count * 100) if count else 100
-            emit_sync({"type": "job_progress", "id": job_id, "progress": pct, "detail": f"type {tid}"})
+            job_progress(run_id, pct, f"type {tid}")
 
     try:
         with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -110,7 +110,7 @@ def run_tick(max_calls: int = 800, workers: int = 6) -> None:
         record_job("scheduler_tick", True, {"refreshed": count})
     except Exception as e:
         record_job("scheduler_tick", False, {"error": str(e)})
-        emit_sync({"type": "job_finished", "id": job_id, "ok": False})
+        job_finished(run_id, ok=False, error=str(e))
         raise
     else:
         ms = int((time.time() - t0) * 1000)
@@ -127,4 +127,4 @@ def run_tick(max_calls: int = 800, workers: int = 6) -> None:
             con2.close()
         STATUS["counts"] = {"types_10m": last10, "types_1h": last60}
         emit_sync({"type": "counts", "counts": STATUS["counts"]})
-        emit_sync({"type": "job_finished", "id": job_id, "ok": True, "items_written": count, "ms": ms})
+        job_finished(run_id, ok=True, items=count, ms=ms)
