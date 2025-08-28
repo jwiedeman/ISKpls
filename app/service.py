@@ -17,7 +17,8 @@ from .snipes import find_snipes
 from .config import SNIPE_EPSILON, SNIPE_Z, SPREAD_BUFFER, STATION_ID, REC_FRESH_MS
 from .market import margin_after_fees
 from .ticks import tick
-from .status import status_router, start_heartbeat, stop_heartbeat
+from .status import status_router
+from .ws_bus import router as ws_router, start_heartbeat, stop_heartbeat
 import json
 
 
@@ -41,6 +42,7 @@ app.add_middleware(
 )
 
 app.include_router(status_router)
+app.include_router(ws_router)
 
 
 

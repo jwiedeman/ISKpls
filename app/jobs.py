@@ -14,36 +14,16 @@ from datetime import datetime
 import heapq
 import json
 import time
-import asyncio
-import uuid
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from . import db, esi
-from .status import STATUS, emit
-
-
-def _emit(evt: Dict[str, Any]) -> None:
-    """Fire-and-forget wrapper around :func:`status.emit`.
-
-    The job queue runs in synchronous contexts (including tests) where an
-    event loop may not be running. If no loop is active we silently drop the
-    event so unit tests remain simple.
-    """
-
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        return
-    loop.create_task(emit(evt))
+from .status import STATUS
+from .emit import emit_sync, job_started, job_finished
 
 # Public state for status reporting -------------------------------------------------
 
 # Snapshot of queued job names for API consumers.
 JOB_QUEUE: List[str] = []
-
-# Information about the currently running job, if any.
-IN_FLIGHT: Optional[Dict[str, str]] = None
-
 
 # Internal priority queue ----------------------------------------------------------
 
@@ -68,7 +48,7 @@ def _refresh_snapshot() -> None:
     JOB_QUEUE[:] = [job.name for _, _, job in sorted(_queue)]
     depth = queue_depth()
     STATUS["queue"] = depth
-    _emit({"type": "queue", "depth": depth})
+    emit_sync({"type": "queue", "depth": depth})
 
 
 def enqueue(name: str, func: Callable[..., Any], priority: str = "P2", *args, **kwargs) -> None:
@@ -100,12 +80,7 @@ def run_next_job() -> bool:
         return False
     _, _, job = heapq.heappop(_queue)
     _refresh_snapshot()
-    global IN_FLIGHT
-    job_id = f"j-{uuid.uuid4().hex[:5]}"
-    started = datetime.utcnow().isoformat()
-    IN_FLIGHT = {"name": job.name, "id": job_id, "started": started}
-    STATUS["inflight"] = [{"job": job.name, "id": job_id, "since": started}]
-    _emit({"type": "job_started", "job": job.name, "id": job_id})
+    run_id = job_started(job.name)
     t0 = time.time()
     ok = True
     try:
@@ -115,19 +90,16 @@ def run_next_job() -> bool:
         raise
     finally:
         ms = int((time.time() - t0) * 1000)
-        _emit({"type": "job_finished", "id": job_id, "ok": ok, "ms": ms})
-        IN_FLIGHT = None
-        STATUS["inflight"] = []
+        job_finished(run_id, ok, ms=ms)
     return True
 
 
 def clear_queue() -> None:
     """Helper to clear internal state (primarily for tests)."""
 
-    global _counter, IN_FLIGHT
+    global _counter
     _queue.clear()
     JOB_QUEUE.clear()
-    IN_FLIGHT = None
     _counter = 0
 
 

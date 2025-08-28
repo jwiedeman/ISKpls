@@ -1,85 +1,78 @@
-from fastapi import APIRouter, WebSocket
-import asyncio
 from datetime import datetime
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict
+from fastapi import APIRouter
 
 status_router = APIRouter()
 
-# cache filled by scheduler
+# Global snapshot for fallback polling -------------------------------------------------
 STATUS: Dict[str, Any] = {
     "inflight": [],
     "last_runs": [],
-    "counts": {},
     "esi": {},
     "queue": {},
+    "logs": [],
+    "counts": {},
 }
-WS_CLIENTS: Set[WebSocket] = set()
 
-# Internal heartbeat task reference so it can be cancelled on shutdown.
-_heartbeat_task: Optional[asyncio.Task] = None
+
+def update_status(evt: Dict[str, Any]) -> None:
+    """Update in-memory status snapshot based on an event."""
+    t = evt.get("type")
+    if t == "job_started":
+        STATUS.setdefault("inflight", [])
+        STATUS["inflight"].append(
+            {
+                "job": evt.get("job"),
+                "runId": evt.get("runId"),
+                "progress": 0,
+                "detail": "",
+                "since": datetime.utcnow().isoformat() + "Z",
+            }
+        )
+    elif t == "job_progress":
+        rid = evt.get("runId")
+        for j in STATUS.get("inflight", []):
+            if j.get("runId") == rid:
+                j["progress"] = evt.get("progress", j.get("progress", 0))
+                j["detail"] = evt.get("detail", "")
+    elif t == "job_log":
+        STATUS.setdefault("logs", [])
+        STATUS["logs"].append(evt)
+        if len(STATUS["logs"]) > 50:
+            STATUS["logs"] = STATUS["logs"][-50:]
+    elif t == "job_finished":
+        rid = evt.get("runId")
+        job_name = None
+        remaining = []
+        for j in STATUS.get("inflight", []):
+            if j.get("runId") == rid:
+                job_name = j.get("job")
+            else:
+                remaining.append(j)
+        STATUS["inflight"] = remaining
+        rec: Dict[str, Any] = {
+            "job": job_name,
+            "ok": evt.get("ok"),
+            "ts": datetime.utcnow().isoformat() + "Z",
+        }
+        if evt.get("ms") is not None:
+            rec["ms"] = evt.get("ms")
+        STATUS.setdefault("last_runs", [])
+        STATUS["last_runs"] = [rec] + STATUS["last_runs"][-19:]
+    elif t == "esi":
+        STATUS["esi"] = {"remain": evt.get("remain"), "reset": evt.get("reset")}
+    elif t == "queue":
+        STATUS["queue"] = evt.get("depth", {})
+
 
 @status_router.get("/status")
 def get_status() -> Dict[str, Any]:
-    return STATUS
-
-@status_router.websocket("/ws")
-async def ws(ws: WebSocket):
-    await ws.accept()
-    WS_CLIENTS.add(ws)
-    try:
-        while True:
-            await ws.receive_text()  # keepalive
-    except Exception:
-        pass
-    finally:
-        WS_CLIENTS.discard(ws)
-
-async def emit(evt: Dict[str, Any]) -> None:
-    dead = []
-    for ws in WS_CLIENTS:
-        try:
-            await ws.send_json(evt)
-        except Exception:
-            dead.append(ws)
-    for ws in dead:
-        WS_CLIENTS.discard(ws)
-
-
-def emit_sync(evt: Dict[str, Any]) -> None:
-    """Best-effort helper to emit from sync code."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:  # no loop running
-        asyncio.run(emit(evt))
-    else:
-        loop.create_task(emit(evt))
-
-
-async def _heartbeat_loop(interval: float) -> None:
-    """Background task that periodically emits heartbeat events."""
-    try:
-        while True:
-            await asyncio.sleep(interval)
-            now = datetime.utcnow().isoformat() + "Z"
-            await emit({"type": "heartbeat", "now": now})
-    except asyncio.CancelledError:  # pragma: no cover - task cancellation
-        pass
-
-
-def start_heartbeat(interval: float = 10.0) -> None:
-    """Launch the heartbeat background task if an event loop is running."""
-    global _heartbeat_task
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:  # no loop running (e.g., during tests)
-        return
-    if _heartbeat_task is None or _heartbeat_task.done():
-        _heartbeat_task = loop.create_task(_heartbeat_loop(interval))
-
-
-def stop_heartbeat() -> None:
-    """Cancel the heartbeat task if active."""
-    global _heartbeat_task
-    if _heartbeat_task is not None:
-        _heartbeat_task.cancel()
-        _heartbeat_task = None
+    """Return the current status snapshot for polling clients."""
+    return {
+        "inflight": STATUS.get("inflight", []),
+        "last_runs": STATUS.get("last_runs", []),
+        "esi": STATUS.get("esi", {}),
+        "queue": STATUS.get("queue", {}),
+        "logs": STATUS.get("logs", []),
+        "counts": STATUS.get("counts", {}),
+    }

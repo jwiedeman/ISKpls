@@ -1,10 +1,10 @@
 import time
 import logging
-import asyncio
 import requests
 
 from .config import DATASOURCE
-from .status import STATUS, emit
+from .status import STATUS
+from .emit import emit_sync
 
 BASE = "https://esi.evetech.net/latest"
 HEADERS = {"Accept": "application/json"}
@@ -14,21 +14,6 @@ logger = logging.getLogger(__name__)
 # Track ESI error limit headers for observability
 ERROR_LIMIT_REMAIN = 100
 ERROR_LIMIT_RESET = 0
-
-
-def _emit(evt: dict) -> None:
-    """Best-effort event emitter for status updates.
-
-    ``esi`` runs in both synchronous and asynchronous contexts. When no
-    event loop is running (e.g. during unit tests) the notification is
-    simply dropped. This mirrors the helper used by ``jobs``.
-    """
-
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        return
-    loop.create_task(emit(evt))
 
 
 def get(url, params=None, etag=None, token=None):
@@ -47,7 +32,7 @@ def get(url, params=None, etag=None, token=None):
         r.headers.get("X-ESI-Error-Limit-Reset", ERROR_LIMIT_RESET)
     )
     STATUS["esi"] = {"remain": ERROR_LIMIT_REMAIN, "reset": ERROR_LIMIT_RESET}
-    _emit({"type": "esi", "remain": ERROR_LIMIT_REMAIN, "reset": ERROR_LIMIT_RESET})
+    emit_sync({"type": "esi", "remain": ERROR_LIMIT_REMAIN, "reset": ERROR_LIMIT_RESET})
     logger.info("response %s %s", r.status_code, r.headers.get("X-Pages"))
     if r.status_code == 304:
         return None, r.headers, 304
