@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
-import { API_BASE, getStatus, runJob, type StatusSnapshot, getWatchlist, getCoverage, type Coverage } from '../api';
+import {
+  API_BASE,
+  getStatus,
+  runJob,
+  type StatusSnapshot,
+  getWatchlist,
+  getCoverage,
+  type Coverage,
+  buildRecommendations,
+} from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 import TypeName from '../TypeName';
@@ -69,6 +78,22 @@ export default function Dashboard() {
     }
   }
 
+  async function buildRecs() {
+    setLoading(true);
+    try {
+      await buildRecommendations();
+      await refresh();
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError(String(e));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     refresh();
     const wsUrl = API_BASE.replace('http', 'ws') + '/ws';
@@ -121,7 +146,7 @@ export default function Dashboard() {
         </p>
       )}
       <button disabled={loading} onClick={() => run('scheduler_tick')}>Run Scheduler</button>
-      <button disabled={loading} onClick={() => run('recommendations')}>Build Recommendations</button>
+      <button disabled={loading} onClick={buildRecs}>Build Recommendations</button>
       <h3>Recent Jobs</h3>
       <ul>
         {jobs.map(j => (

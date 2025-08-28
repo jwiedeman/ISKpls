@@ -755,6 +755,15 @@ def recompute_valuations():
     return {"count": count}
 
 
+@app.post("/recommendations/build")
+def recommendations_build(dry_run: bool = False, verbose: bool = False):
+    """Trigger a recommendations build or return dry-run counts."""
+    res = build_recommendations(verbose=verbose, dry_run=dry_run)
+    if dry_run:
+        return res
+    return {"rows": len(res)}
+
+
 @app.post("/jobs/{name}/run")
 def run_job(name: str, verbose: bool = False):
     """Run a background job immediately.
