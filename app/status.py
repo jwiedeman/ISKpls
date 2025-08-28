@@ -12,6 +12,7 @@ STATUS: Dict[str, Any] = {
     "queue": {},
     "logs": [],
     "counts": {},
+    "pending": [],
 }
 
 
@@ -63,6 +64,8 @@ def update_status(evt: Dict[str, Any]) -> None:
         STATUS["esi"] = {"remain": evt.get("remain"), "reset": evt.get("reset")}
     elif t == "queue":
         STATUS["queue"] = evt.get("depth", {})
+    elif t == "jobs":
+        STATUS["pending"] = evt.get("pending", [])
 
 
 @status_router.get("/status")
@@ -73,6 +76,7 @@ def get_status() -> Dict[str, Any]:
         "last_runs": STATUS.get("last_runs", []),
         "esi": STATUS.get("esi", {}),
         "queue": STATUS.get("queue", {}),
+        "pending": STATUS.get("pending", []),
         "logs": STATUS.get("logs", []),
         "counts": STATUS.get("counts", {}),
     }

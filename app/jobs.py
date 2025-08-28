@@ -18,7 +18,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from . import db, esi
 from .status import STATUS
-from .emit import job_started, job_finished, queue_event
+from .emit import job_started, job_finished, queue_event, jobs_event, run_id
 
 # Public state for status reporting -------------------------------------------------
 
@@ -41,6 +41,10 @@ class Job:
     args: tuple = ()
     kwargs: dict = field(default_factory=dict)
     priority: str = "P2"
+    queued_at: str = field(
+        default_factory=lambda: datetime.utcnow().isoformat() + "Z"
+    )
+    run_id: str = field(default_factory=run_id)
 
 
 def _refresh_snapshot() -> None:
@@ -49,6 +53,11 @@ def _refresh_snapshot() -> None:
     depth = queue_depth()
     STATUS["queue"] = depth
     queue_event(depth)
+    pending = [
+        {"job": job.name, "runId": job.run_id, "queued_at": job.queued_at}
+        for _, _, job in sorted(_queue, key=lambda t: -t[1])
+    ]
+    jobs_event(pending)
 
 
 def enqueue(name: str, func: Callable[..., Any], priority: str = "P2", *args, **kwargs) -> None:
@@ -80,7 +89,7 @@ def run_next_job() -> bool:
         return False
     _, _, job = heapq.heappop(_queue)
     _refresh_snapshot()
-    run_id = job_started(job.name)
+    run_id = job_started(job.name, runId=job.run_id)
     t0 = time.time()
     ok = True
     try:
