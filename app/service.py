@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from contextlib import asynccontextmanager
 from typing import Any, Literal
+from statistics import median
 from .settings_service import get_settings, update_settings, FIELD_META, validate_settings
 from .recommender import build_recommendations
 from .scheduler import run_tick
@@ -13,7 +14,7 @@ from .auth import get_token, token_status
 from .scheduler_config import get_scheduler_settings, update_scheduler_settings
 from .type_cache import get_type_name, refresh_type_name_cache, ensure_type_names
 from .snipes import find_snipes
-from .config import SNIPE_EPSILON, SNIPE_Z, SPREAD_BUFFER
+from .config import SNIPE_EPSILON, SNIPE_Z, SPREAD_BUFFER, STATION_ID
 from .market import margin_after_fees
 from .ticks import tick
 from .status import status_router
@@ -281,29 +282,39 @@ def list_recommendations(
             """,
             (*params, limit, offset),
         ).fetchall()
+
+        results = []
+        now = datetime.utcnow()
+        for type_id, type_name, station_id, ts, net, mom, cap, rationale in rows:
+            try:
+                details = json.loads(rationale) if rationale else {}
+            except json.JSONDecodeError:
+                details = {}
+            last_snap = cur.execute(
+                "SELECT MAX(ts_utc) FROM market_snapshots WHERE type_id=?",
+                (type_id,),
+            ).fetchone()[0]
+            age_ms = None
+            if last_snap:
+                age_ms = int((now - datetime.fromisoformat(last_snap)).total_seconds() * 1000)
+            results.append(
+                {
+                    "type_id": type_id,
+                    "type_name": type_name or get_type_name(type_id),
+                    "station_id": station_id,
+                    "ts_utc": ts,
+                    "net_pct": net,
+                    "uplift_mom": mom,
+                    "daily_capacity": cap,
+                    "best_bid": details.get("best_bid"),
+                    "best_ask": details.get("best_ask"),
+                    "daily_volume": details.get("daily_volume"),
+                    "snapshot_age_ms": age_ms,
+                    "details": details,
+                }
+            )
     finally:
         con.close()
-    results = []
-    for type_id, type_name, station_id, ts, net, mom, cap, rationale in rows:
-        try:
-            details = json.loads(rationale) if rationale else {}
-        except json.JSONDecodeError:
-            details = {}
-        results.append(
-            {
-                "type_id": type_id,
-                "type_name": type_name or get_type_name(type_id),
-                "station_id": station_id,
-                "ts_utc": ts,
-                "net_pct": net,
-                "uplift_mom": mom,
-                "daily_capacity": cap,
-                "best_bid": details.get("best_bid"),
-                "best_ask": details.get("best_ask"),
-                "daily_volume": details.get("daily_volume"),
-                "details": details,
-            }
-        )
     return {"rows": results, "total": total}
 
 
@@ -539,6 +550,50 @@ def list_inventory(
             }
         )
     return {"items": items}
+
+
+@app.get("/inventory/coverage")
+def inventory_coverage():
+    """Return snapshot coverage statistics for market data."""
+    con = connect()
+    try:
+        cur = con.cursor()
+        types_indexed = cur.execute(
+            "SELECT COUNT(DISTINCT type_id) FROM market_snapshots"
+        ).fetchone()[0]
+        books_last_10m = cur.execute(
+            "SELECT COUNT(*) FROM market_snapshots WHERE ts_utc >= datetime('now','-10 minutes')"
+        ).fetchone()[0]
+        rows = cur.execute(
+            "SELECT type_id, MAX(ts_utc) FROM market_snapshots GROUP BY type_id"
+        ).fetchall()
+    finally:
+        con.close()
+
+    now = datetime.utcnow()
+    ages: list[int] = []
+    oldest_type: int | None = None
+    oldest_age = -1
+    for type_id, ts in rows:
+        if not ts:
+            continue
+        age = int((now - datetime.fromisoformat(ts)).total_seconds() * 1000)
+        ages.append(age)
+        if age > oldest_age:
+            oldest_age = age
+            oldest_type = type_id
+    median_age = int(median(ages)) if ages else 0
+    oldest_snapshot = (
+        {"type_id": oldest_type, "age_ms": oldest_age} if oldest_type is not None else None
+    )
+
+    return {
+        "station_id": STATION_ID,
+        "types_indexed": types_indexed or 0,
+        "books_last_10m": books_last_10m or 0,
+        "median_snapshot_age_ms": median_age,
+        "oldest_snapshot": oldest_snapshot,
+    }
 
 
 @app.get("/portfolio/summary")

@@ -13,6 +13,12 @@ export async function getStatus(): Promise<StatusSnapshot> {
   return res.json();
 }
 
+export async function getCoverage() {
+  const res = await fetch(`${API_BASE}/inventory/coverage`);
+  if (!res.ok) throw new Error('Failed to fetch coverage');
+  return res.json();
+}
+
 export async function getSettings() {
   const res = await fetch(`${API_BASE}/settings`);
   if (!res.ok) throw new Error('Failed to fetch settings');
