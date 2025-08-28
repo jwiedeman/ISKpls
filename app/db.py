@@ -126,25 +126,27 @@ CREATE TABLE IF NOT EXISTS type_status (
 CREATE TABLE IF NOT EXISTS market_snapshots (
   ts_utc TEXT NOT NULL,
   type_id INTEGER NOT NULL,
+  station_id INTEGER NOT NULL,
   best_bid REAL,
   best_ask REAL,
   bid_count INTEGER,
   ask_count INTEGER,
   jita_bid_units INTEGER,
   jita_ask_units INTEGER,
-  PRIMARY KEY (ts_utc, type_id)
+  PRIMARY KEY (ts_utc, type_id, station_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_market_snapshots_type ON market_snapshots(type_id);
+CREATE INDEX IF NOT EXISTS idx_market_snapshots_station_type ON market_snapshots(station_id, type_id);
 
 CREATE VIEW IF NOT EXISTS latest_prices_v AS
-SELECT s.type_id, s.best_bid, s.best_ask, s.ts_utc AS last_updated
+SELECT s.type_id, s.station_id, s.best_bid, s.best_ask, s.ts_utc AS last_updated
 FROM market_snapshots s
 JOIN (
-  SELECT type_id, MAX(ts_utc) AS max_ts
+  SELECT type_id, station_id, MAX(ts_utc) AS max_ts
   FROM market_snapshots
-  GROUP BY type_id
-) m ON m.type_id = s.type_id AND m.max_ts = s.ts_utc;
+  GROUP BY type_id, station_id
+) m ON m.type_id = s.type_id AND m.station_id = s.station_id AND m.max_ts = s.ts_utc;
 
 CREATE TABLE IF NOT EXISTS type_trends (
   type_id INTEGER PRIMARY KEY,

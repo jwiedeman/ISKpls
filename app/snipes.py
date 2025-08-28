@@ -9,6 +9,7 @@ from .config import (
     SNIPE_DELTA,
     SNIPE_EPSILON,
     SNIPE_Z,
+    STATION_ID,
 )
 from .market import margin_after_fees
 from .type_cache import get_type_name
@@ -38,11 +39,13 @@ def find_snipes(
             JOIN (
               SELECT type_id, MAX(ts_utc) AS ts
               FROM market_snapshots
+              WHERE station_id = ?
               GROUP BY type_id
             ) latest
             ON latest.type_id = m.type_id AND latest.ts = m.ts_utc
-            WHERE m.best_bid IS NOT NULL AND m.best_ask IS NOT NULL
+            WHERE m.best_bid IS NOT NULL AND m.best_ask IS NOT NULL AND m.station_id = ?
             """,
+            (STATION_ID, STATION_ID),
         ).fetchall()
 
         results: List[dict] = []
@@ -50,8 +53,8 @@ def find_snipes(
             hist = [
                 a
                 for (a,) in con.execute(
-                    "SELECT best_ask FROM market_snapshots WHERE type_id=? ORDER BY ts_utc DESC LIMIT 20",
-                    (type_id,),
+                    "SELECT best_ask FROM market_snapshots WHERE type_id=? AND station_id=? ORDER BY ts_utc DESC LIMIT 20",
+                    (type_id, STATION_ID),
                 )
                 if a is not None
             ]

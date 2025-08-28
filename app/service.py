@@ -250,8 +250,8 @@ def list_db_items(
     thresholds = settings["DEAL_THRESHOLDS"]
     con = connect()
     try:
-        where = []
-        params: list[Any] = []
+        where = ["lp.station_id = ?"]
+        params: list[Any] = [station_id]
         if search:
             if search.isdigit():
                 where.append("(lp.type_id = ? OR types.name LIKE ?)")
@@ -259,7 +259,7 @@ def list_db_items(
             else:
                 where.append("types.name LIKE ?")
                 params.append(f"%{search}%")
-        where_clause = " AND ".join(where) if where else "1=1"
+        where_clause = " AND ".join(where)
         rows = con.execute(
             f"""
             SELECT lp.type_id, types.name, lp.best_bid, lp.best_ask, lp.last_updated,
@@ -327,6 +327,7 @@ def legacy_list_recommendations(
     meta: int | None,
     search: str | None,
     show_all: bool,
+    station_id: int,
 ):
     """Return recommendations using legacy gating on freshness, MoM, and volume."""
     settings = get_settings()
@@ -343,8 +344,8 @@ def legacy_list_recommendations(
         min_vol = settings["MIN_DAILY_VOL"]
     con = connect()
     try:
-        where: list[str] = []
-        params: list[Any] = []
+        where: list[str] = ["lp.station_id = ?"]
+        params: list[Any] = [station_id]
         if category is not None:
             where.append("types.category_id = ?")
             params.append(category)
@@ -358,10 +359,11 @@ def legacy_list_recommendations(
             else:
                 where.append("types.name LIKE ?")
                 params.append(f"%{search}%")
-        join_rec = "LEFT JOIN recommendations r ON r.type_id = lp.type_id"
+        join_rec = "LEFT JOIN recommendations r ON r.type_id = lp.type_id AND r.station_id = ?"
+        params.insert(0, station_id)
         if not show_all:
             where.append("r.type_id IS NOT NULL")
-        where_clause = " AND ".join(where) if where else "1=1"
+        where_clause = " AND ".join(where)
         rows = con.execute(
             f"""
             SELECT lp.type_id, types.name, lp.best_bid, lp.best_ask, lp.last_updated,
@@ -449,13 +451,14 @@ def list_recommendations(
     sort: str = "profit_pct",
     dir: str = "desc",
     min_profit_pct: float = 0.0,
-    min_mom: float = 0.0,
-    min_vol: float = 0.0,
+    min_mom: float | None = None,
+    min_vol: float | None = None,
     category: int | None = None,
     meta: int | None = None,
     search: str | None = None,
     show_all: bool = False,
     mode: Literal["profit_only", "legacy"] = "profit_only",
+    station_id: int = STATION_ID,
 ):
     if mode == "legacy":
         return legacy_list_recommendations(
@@ -464,12 +467,13 @@ def list_recommendations(
             sort,
             dir,
             min_profit_pct,
-            min_mom,
-            min_vol,
+            min_mom or 0.0,
+            min_vol or 0.0,
             category,
             meta,
             search,
             show_all,
+            station_id,
         )
 
     settings = get_settings()
@@ -480,8 +484,8 @@ def list_recommendations(
     thresholds = settings["DEAL_THRESHOLDS"]
     con = connect()
     try:
-        where = []
-        params: list[Any] = []
+        where = ["lp.station_id = ?"]
+        params: list[Any] = [station_id]
         if category is not None:
             where.append("types.category_id = ?")
             params.append(category)
@@ -495,10 +499,11 @@ def list_recommendations(
             else:
                 where.append("types.name LIKE ?")
                 params.append(f"%{search}%")
-        join_rec = "LEFT JOIN recommendations r ON r.type_id = lp.type_id"
+        join_rec = "LEFT JOIN recommendations r ON r.type_id = lp.type_id AND r.station_id = ?"
+        params.insert(0, station_id)
         if not show_all:
             where.append("r.type_id IS NOT NULL")
-        where_clause = " AND ".join(where) if where else "1=1"
+        where_clause = " AND ".join(where)
         rows = con.execute(
             f"""
             SELECT lp.type_id, types.name, lp.best_bid, lp.best_ask, lp.last_updated,
@@ -532,9 +537,9 @@ def list_recommendations(
         profit_isk, profit_pct = compute_profit(bid, ask, fees, tick)
         if profit_pct < min_profit_pct:
             continue
-        if mom is not None and mom < min_mom:
+        if min_mom is not None and (mom is None or mom < min_mom):
             continue
-        if vol is not None and vol < min_vol:
+        if min_vol is not None and (vol is None or vol < min_vol):
             continue
         label = deal_label(profit_pct, thresholds=thresholds)
         last_dt = datetime.fromisoformat(ts)
@@ -653,11 +658,11 @@ def reprice_order(type_id: int):
             """
             SELECT best_bid, best_ask
             FROM market_snapshots
-            WHERE type_id=?
+            WHERE type_id=? AND station_id=?
             ORDER BY ts_utc DESC
             LIMIT 1
             """,
-            (type_id,),
+            (type_id, STATION_ID),
         ).fetchone()
     finally:
         con.close()
@@ -819,13 +824,16 @@ def inventory_coverage():
     try:
         cur = con.cursor()
         types_indexed = cur.execute(
-            "SELECT COUNT(DISTINCT type_id) FROM market_snapshots"
+            "SELECT COUNT(DISTINCT type_id) FROM market_snapshots WHERE station_id=?",
+            (STATION_ID,),
         ).fetchone()[0]
         books_last_10m = cur.execute(
-            "SELECT COUNT(*) FROM market_snapshots WHERE ts_utc >= datetime('now','-10 minutes')"
+            "SELECT COUNT(*) FROM market_snapshots WHERE station_id=? AND ts_utc >= datetime('now','-10 minutes')",
+            (STATION_ID,),
         ).fetchone()[0]
         rows = cur.execute(
-            "SELECT type_id, MAX(ts_utc) FROM market_snapshots GROUP BY type_id"
+            "SELECT type_id, MAX(ts_utc) FROM market_snapshots WHERE station_id=? GROUP BY type_id",
+            (STATION_ID,),
         ).fetchall()
     finally:
         con.close()
@@ -863,16 +871,20 @@ def coverage_summary():
     try:
         cur = con.cursor()
         types_indexed = cur.execute(
-            "SELECT COUNT(DISTINCT type_id) FROM market_snapshots"
+            "SELECT COUNT(DISTINCT type_id) FROM market_snapshots WHERE station_id=?",
+            (STATION_ID,),
         ).fetchone()[0]
         books_10m = cur.execute(
-            "SELECT COUNT(*) FROM market_snapshots WHERE ts_utc >= datetime('now','-10 minutes')"
+            "SELECT COUNT(*) FROM market_snapshots WHERE station_id=? AND ts_utc >= datetime('now','-10 minutes')",
+            (STATION_ID,),
         ).fetchone()[0]
         distinct_24h = cur.execute(
-            "SELECT COUNT(DISTINCT type_id) FROM market_snapshots WHERE ts_utc >= datetime('now','-1 day')"
+            "SELECT COUNT(DISTINCT type_id) FROM market_snapshots WHERE station_id=? AND ts_utc >= datetime('now','-1 day')",
+            (STATION_ID,),
         ).fetchone()[0]
         rows = cur.execute(
-            "SELECT MAX(ts_utc) FROM market_snapshots GROUP BY type_id"
+            "SELECT MAX(ts_utc) FROM market_snapshots WHERE station_id=? GROUP BY type_id",
+            (STATION_ID,),
         ).fetchall()
     finally:
         con.close()

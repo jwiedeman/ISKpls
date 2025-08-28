@@ -44,8 +44,8 @@ def build_recommendations(
         fresh_ids = {
             tid
             for (tid,) in con.execute(
-                "SELECT DISTINCT type_id FROM market_snapshots WHERE ts_utc >= datetime('now', ?)",
-                (threshold,),
+                "SELECT DISTINCT type_id FROM market_snapshots WHERE ts_utc >= datetime('now', ?) AND station_id=?",
+                (threshold, STATION_ID),
             ).fetchall()
         }
         fresh_pass = sum(1 for tid, _ in rows if tid in fresh_ids)

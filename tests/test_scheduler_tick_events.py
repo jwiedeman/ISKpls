@@ -4,6 +4,7 @@ import pathlib, sys
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 
 from app import db, scheduler
+from app.config import STATION_ID
 
 
 def _fake_refresh_one(con, tid):
@@ -11,10 +12,10 @@ def _fake_refresh_one(con, tid):
     con.execute(
         """
         INSERT OR REPLACE INTO market_snapshots
-        (ts_utc, type_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units)
-        VALUES (?,?,?,?,?,?,?,?)
+        (ts_utc, type_id, station_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units)
+        VALUES (?,?,?,?,?,?,?,?,?)
         """,
-        (ts, tid, None, None, 0, 0, 0, 0),
+        (ts, tid, STATION_ID, None, None, 0, 0, 0, 0),
     )
     con.execute(
         """

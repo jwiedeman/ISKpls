@@ -7,6 +7,7 @@ import pytest
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app import service, db, type_cache
+from app.config import STATION_ID
 from app.market import margin_after_fees
 
 
@@ -19,9 +20,10 @@ def _seed(con):
     con.execute(
         """
         INSERT INTO market_snapshots(
-            ts_utc, type_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units)
-        VALUES ('2024-01-01', 1, 10, 12, 1, 1, 0, 0)
+            ts_utc, type_id, station_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units)
+        VALUES ('2024-01-01', 1, ?, 10, 12, 1, 1, 0, 0)
         """,
+        (STATION_ID,),
     )
     con.commit()
 

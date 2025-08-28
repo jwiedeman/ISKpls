@@ -19,11 +19,12 @@ def seed_basic(con):
     )
     con.execute(
         """
-        INSERT INTO market_snapshots(ts_utc, type_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units)
+        INSERT INTO market_snapshots(ts_utc, type_id, station_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units)
         VALUES
-        ('2024-01-01T00:00:00',1,110,100,0,0,0,0),
-        ('2024-01-01T00:00:00',2,220,200,0,0,0,0)
-        """
+        ('2024-01-01T00:00:00',1,?,110,100,0,0,0,0),
+        ('2024-01-01T00:00:00',2,?,220,200,0,0,0,0)
+        """,
+        (config.STATION_ID, config.STATION_ID),
     )
     con.execute(
         """
@@ -95,12 +96,12 @@ def seed_legacy(con):
     )
     con.execute(
         """
-        INSERT INTO market_snapshots(ts_utc, type_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units)
+        INSERT INTO market_snapshots(ts_utc, type_id, station_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units)
         VALUES
-        (?,1,110,100,0,0,0,0),
-        (?,2,220,200,0,0,0,0)
+        (?,1,?,110,100,0,0,0,0),
+        (?,2,?,220,200,0,0,0,0)
         """,
-        (now.isoformat(), stale.isoformat()),
+        (now.isoformat(), config.STATION_ID, stale.isoformat(), config.STATION_ID),
     )
     con.execute(
         """

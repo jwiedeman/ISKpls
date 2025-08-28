@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from .db import connect
+from .config import STATION_ID
 
 
 def items_summary(limit=50):
@@ -24,8 +25,8 @@ def items_summary(limit=50):
         FROM (
             SELECT ms.* FROM market_snapshots ms
             JOIN (
-              SELECT type_id, MAX(ts_utc) AS max_ts FROM market_snapshots GROUP BY type_id
-            ) latest ON ms.type_id = latest.type_id AND ms.ts_utc = latest.max_ts
+              SELECT type_id, MAX(ts_utc) AS max_ts FROM market_snapshots WHERE station_id=? GROUP BY type_id
+            ) latest ON ms.type_id = latest.type_id AND ms.ts_utc = latest.max_ts AND ms.station_id = ?
         ) s
         LEFT JOIN type_trends t ON t.type_id = s.type_id
         LEFT JOIN (
@@ -36,7 +37,7 @@ def items_summary(limit=50):
         LIMIT ?
         """,
         con,
-        params=(limit,),
+        params=(STATION_ID, STATION_ID, limit),
     )
     con.close()
     return df
