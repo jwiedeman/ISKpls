@@ -1,12 +1,35 @@
 import { useEffect, useRef, useState } from "react";
-import { API_BASE, getStatus } from "./api";
+import { getStatus } from "./api";
+import type { StatusSnapshot } from "./api";
+
+export interface RunwayEvent {
+  type: string;
+  runId?: string;
+  buildId?: string;
+  job?: string;
+  progress?: number;
+  detail?: string;
+  level?: string;
+  message?: string;
+  stage?: string;
+  ok?: boolean;
+  itemsWritten?: number;
+  rows?: number;
+  ms?: number;
+  error?: string;
+  remain?: number;
+  reset?: number;
+  depth?: Record<string, number>;
+  done?: boolean;
+  polled?: boolean;
+}
 
 export function useEventStream() {
   const [connected, setConnected] = useState(false);
-  const [events, setEvents] = useState<any[]>(() => {
+  const [events, setEvents] = useState<RunwayEvent[]>(() => {
     try {
       const cached = sessionStorage.getItem("runway_events");
-      return cached ? JSON.parse(cached) : [];
+      return cached ? (JSON.parse(cached) as RunwayEvent[]) : [];
     } catch {
       return [];
     }
@@ -14,13 +37,15 @@ export function useEventStream() {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    function stash(evts: any[]) {
-      try {
-        sessionStorage.setItem("runway_events", JSON.stringify(evts.slice(-200)));
-      } catch {}
-    }
+      function stash(evts: RunwayEvent[]) {
+        try {
+          sessionStorage.setItem("runway_events", JSON.stringify(evts.slice(-200)));
+        } catch {
+          /* ignore */
+        }
+      }
 
-    let ws: WebSocket | null = new WebSocket(
+    const ws = new WebSocket(
       `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`
     );
     wsRef.current = ws;
@@ -28,7 +53,7 @@ export function useEventStream() {
     ws.onclose = () => setConnected(false);
     ws.onerror = () => setConnected(false);
     ws.onmessage = (e) => {
-      const evt = JSON.parse(e.data);
+      const evt = JSON.parse(e.data) as RunwayEvent;
       setEvents((prev) => {
         const next = [...prev.slice(-199), evt];
         stash(next);
@@ -38,18 +63,19 @@ export function useEventStream() {
     const ping = setInterval(() => ws && ws.readyState === 1 && ws.send("ping"), 10000);
     return () => {
       clearInterval(ping);
-      ws && ws.close();
+      if (ws) ws.close();
     };
   }, []);
 
   // Fallback polling when disconnected -------------------------------------------------
   useEffect(() => {
-    let poll: any;
+    let poll: ReturnType<typeof setInterval> | undefined;
     async function refresh() {
       try {
-        const snap = await getStatus();
+        const snap: StatusSnapshot = await getStatus();
         setEvents((prev) => {
-          const evtList = [...prev, ...snap.logs.map((l: any) => ({ ...l, polled: true }))];
+          const logs = (snap.logs ?? []).map((l) => ({ ...l, polled: true }));
+          const evtList = [...prev, ...logs];
           return evtList.slice(-200);
         });
       } catch {
@@ -60,7 +86,9 @@ export function useEventStream() {
       refresh();
       poll = setInterval(refresh, 2000);
     }
-    return () => poll && clearInterval(poll);
+    return () => {
+      if (poll) clearInterval(poll);
+    };
   }, [connected]);
 
   return { connected, events };

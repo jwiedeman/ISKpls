@@ -1,11 +1,19 @@
 export const API_BASE = 'http://localhost:8000';
 
+export interface StatusLog {
+  type: string;
+  runId?: string;
+  level?: string;
+  message?: string;
+}
+
 export interface StatusSnapshot {
   inflight?: unknown[];
   last_runs?: { job: string; ok: boolean; ts?: string; ms?: number }[];
   counts?: Record<string, number>;
   esi?: { remain?: number; reset?: number };
   queue?: Record<string, number>;
+  logs?: StatusLog[];
 }
 
 export async function getStatus(): Promise<StatusSnapshot> {
