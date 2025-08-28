@@ -27,8 +27,18 @@ def emit_sync(evt: dict) -> None:
 
 # Job event helpers ------------------------------------------------------------------
 
-def job_started(job: str, meta: Optional[dict] = None) -> str:
-    rid = run_id()
+
+def job_started(
+    job: str, meta: Optional[dict] = None, runId: Optional[str] = None
+) -> str:
+    """Emit a ``job_started`` event and return the run identifier.
+
+    When ``runId`` is provided the caller controls the identifier allowing
+    correlation with earlier ``jobs`` queue events. Otherwise a new identifier
+    is generated.
+    """
+
+    rid = runId or run_id()
     emit_sync({"type": "job_started", "job": job, "runId": rid, "meta": meta or {}})
     return rid
 
@@ -99,6 +109,11 @@ def esi_status(remain: int, reset: int) -> None:
 def queue_event(depth: dict[str, int]) -> None:
     """Emit queue depth information by priority class."""
     emit_sync({"type": "queue", "depth": depth})
+
+
+def jobs_event(pending: list[dict]) -> None:
+    """Emit a snapshot of pending jobs in the internal queue."""
+    emit_sync({"type": "jobs", "pending": pending})
 
 
 def build_finished(buildId: str, ok: bool, rows: int = 0, ms: int = 0, error: str | None = None) -> None:
