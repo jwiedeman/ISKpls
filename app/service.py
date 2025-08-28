@@ -15,6 +15,8 @@ from .scheduler_config import get_scheduler_settings, update_scheduler_settings
 from .type_cache import get_type_name, refresh_type_name_cache, ensure_type_names
 from .snipes import find_snipes
 from .config import SNIPE_EPSILON, SNIPE_Z, SPREAD_BUFFER
+from .market import margin_after_fees
+from .ticks import tick
 import json
 
 
@@ -304,6 +306,46 @@ def list_open_orders(
             }
         )
     return {"orders": orders}
+
+
+@app.get("/orders/reprice")
+def reprice_order(type_id: int):
+    """Return one-tick reprice guidance and net margins for a type."""
+    con = connect()
+    try:
+        row = con.execute(
+            """
+            SELECT best_bid, best_ask
+            FROM market_snapshots
+            WHERE type_id=?
+            ORDER BY ts_utc DESC
+            LIMIT 1
+            """,
+            (type_id,),
+        ).fetchone()
+    finally:
+        con.close()
+    if not row or row[0] is None or row[1] is None:
+        raise HTTPException(status_code=404, detail="No market data")
+    best_bid, best_ask = row
+    buy_price = tick(best_bid, "up")
+    sell_price = tick(best_ask, "down")
+    buy_net_pct = (
+        margin_after_fees(buy_price, best_ask) / buy_price if buy_price else 0.0
+    )
+    sell_net_pct = (
+        margin_after_fees(best_bid, sell_price) / best_bid if best_bid else 0.0
+    )
+    return {
+        "type_id": type_id,
+        "type_name": get_type_name(type_id),
+        "best_bid": best_bid,
+        "best_ask": best_ask,
+        "buy_price": buy_price,
+        "sell_price": sell_price,
+        "buy_net_pct": buy_net_pct,
+        "sell_net_pct": sell_net_pct,
+    }
 
 
 @app.get("/orders/history")
