@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getOpenOrders, getOrderHistory } from '../api';
+import { getOpenOrders, getOrderHistory, getRepriceGuidance } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 import TypeName from '../TypeName';
@@ -18,12 +18,20 @@ interface Order {
   state?: string;
 }
 
+interface Guidance {
+  buy_price: number;
+  sell_price: number;
+  buy_net_pct: number;
+  sell_net_pct: number;
+}
+
 export default function Orders() {
   const [openOrders, setOpenOrders] = useState<Order[]>([]);
   const [history, setHistory] = useState<Order[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [guidance, setGuidance] = useState<Record<number, Guidance>>({});
 
   async function refresh() {
     setLoading(true);
@@ -50,6 +58,15 @@ export default function Orders() {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function fetchGuidance(typeId: number) {
+    try {
+      const g = await getRepriceGuidance(typeId);
+      setGuidance(prev => ({ ...prev, [typeId]: g }));
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
 
   return (
     <div>
@@ -78,6 +95,7 @@ export default function Orders() {
             <th>Price</th>
             <th>Filled %</th>
             <th>Escrow</th>
+            <th>Reprice</th>
           </tr>
         </thead>
         <tbody>
@@ -88,6 +106,16 @@ export default function Orders() {
               <td>{o.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               <td>{(o.fill_pct * 100).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
               <td>{o.escrow.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td>
+                <button onClick={() => fetchGuidance(o.type_id)} disabled={loading}>±1 tick</button>
+                {guidance[o.type_id] && (
+                  <div>
+                    {o.is_buy
+                      ? `${guidance[o.type_id].buy_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${(guidance[o.type_id].buy_net_pct * 100).toFixed(2)}%)`
+                      : `${guidance[o.type_id].sell_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${(guidance[o.type_id].sell_net_pct * 100).toFixed(2)}%)`}
+                  </div>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

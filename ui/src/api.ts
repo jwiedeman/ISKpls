@@ -92,6 +92,23 @@ export async function getOrderHistory(limit = 100, search = '') {
   return res.json();
 }
 
+export interface RepriceGuidance {
+  type_id: number;
+  type_name: string;
+  best_bid: number;
+  best_ask: number;
+  buy_price: number;
+  sell_price: number;
+  buy_net_pct: number;
+  sell_net_pct: number;
+}
+
+export async function getRepriceGuidance(typeId: number): Promise<RepriceGuidance> {
+  const res = await fetch(`${API_BASE}/orders/reprice?type_id=${typeId}`);
+  if (!res.ok) throw new Error('Failed to fetch reprice guidance');
+  return res.json();
+}
+
 export async function getPortfolioNav() {
   const res = await fetch(`${API_BASE}/portfolio/nav`);
   if (!res.ok) throw new Error('Failed to fetch portfolio NAV');
