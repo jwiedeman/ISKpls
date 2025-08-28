@@ -45,6 +45,16 @@ async def emit(evt: Dict[str, Any]) -> None:
         WS_CLIENTS.discard(ws)
 
 
+def emit_sync(evt: Dict[str, Any]) -> None:
+    """Best-effort helper to emit from sync code."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:  # no loop running
+        asyncio.run(emit(evt))
+    else:
+        loop.create_task(emit(evt))
+
+
 async def _heartbeat_loop(interval: float) -> None:
     """Background task that periodically emits heartbeat events."""
     try:

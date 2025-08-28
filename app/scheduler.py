@@ -1,10 +1,13 @@
 import time
 import logging
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 from .db import connect
 from .jita_snapshots import refresh_one
-from .trends import compute_mom, region_history
 from .config import REGION_ID
 from .jobs import record_job
+from .status import emit_sync
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +47,7 @@ def fill_queue_from_trends(max_types=500):
     logger.info("Queue filled for %s types", len(rows))
 
 
-def run_tick(max_calls=200):
+def run_tick(max_calls: int = 200, workers: int = 4) -> None:
     logger.info("Running scheduler tick")
     con = connect()
     try:
@@ -57,15 +60,41 @@ def run_tick(max_calls=200):
             """,
             (max_calls,),
         ).fetchall()
-        logger.info("%s types due for refresh", len(due))
-        for (tid,) in due:
-            logger.info("Refreshing %s", tid)
-            refresh_one(con, tid)
-            con.commit()
-            time.sleep(0.2)
-        record_job("scheduler_tick", True, {"refreshed": len(due)})
-    except Exception as e:
-        record_job("scheduler_tick", False, {"error": str(e)})
-        raise
     finally:
         con.close()
+
+    count = len(due)
+    logger.info("%s types due for refresh", count)
+    job_id = f"j-{uuid.uuid4().hex[:5]}"
+    emit_sync({"type": "job_started", "job": "scheduler_tick", "id": job_id, "meta": {"total": count}})
+
+    t0 = time.time()
+    lock = Lock()
+    completed = 0
+
+    def _run(tid: int) -> None:
+        nonlocal completed
+        c = connect()
+        try:
+            refresh_one(c, tid)
+            c.commit()
+        finally:
+            c.close()
+        with lock:
+            completed += 1
+            pct = int(completed / count * 100) if count else 100
+            emit_sync({"type": "job_progress", "id": job_id, "progress": pct, "detail": f"type {tid}"})
+
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for (tid,) in due:
+                pool.submit(_run, tid)
+            pool.shutdown(wait=True)
+        record_job("scheduler_tick", True, {"refreshed": count})
+    except Exception as e:
+        record_job("scheduler_tick", False, {"error": str(e)})
+        emit_sync({"type": "job_finished", "id": job_id, "ok": False})
+        raise
+    else:
+        ms = int((time.time() - t0) * 1000)
+        emit_sync({"type": "job_finished", "id": job_id, "ok": True, "items_written": count, "ms": ms})
