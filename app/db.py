@@ -137,6 +137,15 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_market_snapshots_type ON market_snapshots(type_id);
 
+CREATE VIEW IF NOT EXISTS latest_prices_v AS
+SELECT s.type_id, s.best_bid, s.best_ask, s.ts_utc AS last_updated
+FROM market_snapshots s
+JOIN (
+  SELECT type_id, MAX(ts_utc) AS max_ts
+  FROM market_snapshots
+  GROUP BY type_id
+) m ON m.type_id = s.type_id AND m.max_ts = s.ts_utc;
+
 CREATE TABLE IF NOT EXISTS type_trends (
   type_id INTEGER PRIMARY KEY,
   last_history_ts TEXT,

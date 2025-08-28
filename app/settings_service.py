@@ -18,6 +18,9 @@ DEFAULTS: Dict[str, Any] = {
     "MIN_DAYS_TRADED": config.MIN_DAYS_TRADED,
     "MIN_DAILY_VOL": config.MIN_DAILY_VOL,
     "SPREAD_BUFFER": config.SPREAD_BUFFER,
+    "DEAL_THRESHOLDS": {"great_pct": 0.08, "good_pct": 0.04, "neutral_pct": 0.01},
+    "CONFIDENCE_WEIGHTS": {"vol": 0.4, "freshness": 0.3, "stability": 0.3},
+    "SHOW_ALL_DEFAULT": False,
 }
 
 # Metadata used for validation and UI hints
@@ -34,6 +37,9 @@ FIELD_META: Dict[str, Dict[str, Any]] = {
     "MIN_DAYS_TRADED": {"type": int, "min": 0},
     "MIN_DAILY_VOL": {"type": int, "min": 0},
     "SPREAD_BUFFER": {"type": float, "min": 0.0, "max": 1.0},
+    "DEAL_THRESHOLDS": {"type": dict},
+    "CONFIDENCE_WEIGHTS": {"type": dict},
+    "SHOW_ALL_DEFAULT": {"type": bool},
 }
 
 
@@ -75,6 +81,8 @@ def _coerce(key: str, value: str) -> Any:
         return int(value)
     if isinstance(default, float):
         return float(value)
+    if isinstance(default, (dict, list)):
+        return json.loads(value)
     return value
 
 
