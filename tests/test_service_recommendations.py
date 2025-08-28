@@ -97,3 +97,28 @@ def test_recommendations_sort_and_offset(tmp_path, monkeypatch):
     assert len(data) == 1
     assert data[0]["type_id"] == 1
 
+
+def test_recommendations_search(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.sqlite3")
+    db.init_db()
+    con = db.connect()
+    try:
+        _seed_types(con)
+        _seed_recommendations(con)
+        type_cache.refresh_type_name_cache()
+    finally:
+        con.close()
+
+    client = TestClient(service.app)
+    resp = client.get("/recommendations", params={"search": "Foo"})
+    assert resp.status_code == 200
+    data = resp.json()["results"]
+    assert len(data) == 1
+    assert data[0]["type_id"] == 1
+
+    resp = client.get("/recommendations", params={"search": "2"})
+    assert resp.status_code == 200
+    data = resp.json()["results"]
+    assert len(data) == 1
+    assert data[0]["type_id"] == 2
+

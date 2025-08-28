@@ -225,6 +225,7 @@ def list_recommendations(
     dir: str = "desc",
     min_net: float = 0.0,
     min_mom: float = 0.0,
+    search: str | None = None,
 ):
     """Return recent recommendations filtered by net spread and MoM uplift."""
     allowed = {
@@ -235,17 +236,29 @@ def list_recommendations(
     }
     col = allowed.get(sort, "ts_utc")
     direction = "ASC" if dir.lower() == "asc" else "DESC"
+    where = ["net_pct >= ?", "uplift_mom >= ?"]
+    params: list[Any] = [min_net, min_mom]
+    join = ""
+    if search:
+        join = " JOIN types ON recommendations.type_id = types.type_id"
+        if search.isdigit():
+            where.append("(recommendations.type_id = ? OR types.name LIKE ?)")
+            params.extend([int(search), f"%{search}%"])
+        else:
+            where.append("types.name LIKE ?")
+            params.append(f"%{search}%")
+
     con = connect()
     try:
         rows = con.execute(
             f"""
-            SELECT type_id, station_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json
-            FROM recommendations
-            WHERE net_pct >= ? AND uplift_mom >= ?
+            SELECT recommendations.type_id, station_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json
+            FROM recommendations{join}
+            WHERE {' AND '.join(where)}
             ORDER BY {col} {direction}
             LIMIT ? OFFSET ?
             """,
-            (min_net, min_mom, limit, offset),
+            (*params, limit, offset),
         ).fetchall()
     finally:
         con.close()
@@ -275,23 +288,38 @@ def list_recommendations(
 
 @app.get("/orders/open")
 def list_open_orders(
-    limit: int = 100, offset: int = 0, sort: str = "issued", dir: str = "desc"
+    limit: int = 100,
+    offset: int = 0,
+    sort: str = "issued",
+    dir: str = "desc",
+    search: str | None = None,
 ):
     """Return open character orders with fill percentage."""
     allowed = {"issued": "issued", "price": "price", "type_id": "type_id"}
     col = allowed.get(sort, "issued")
     direction = "ASC" if dir.lower() == "asc" else "DESC"
+    join = ""
+    where = ["state='open'"]
+    params: list[Any] = []
+    if search:
+        join = " JOIN types ON char_orders.type_id = types.type_id"
+        if search.isdigit():
+            where.append("(char_orders.type_id = ? OR types.name LIKE ?)")
+            params.extend([int(search), f"%{search}%"])
+        else:
+            where.append("types.name LIKE ?")
+            params.append(f"%{search}%")
     con = connect()
     try:
         rows = con.execute(
             f"""
-            SELECT order_id, is_buy, type_id, price, volume_total, volume_remain, issued, escrow
-            FROM char_orders
-            WHERE state='open'
+            SELECT order_id, is_buy, char_orders.type_id, price, volume_total, volume_remain, issued, escrow
+            FROM char_orders{join}
+            WHERE {' AND '.join(where)}
             ORDER BY {col} {direction}
             LIMIT ? OFFSET ?
             """,
-            (limit, offset),
+            (*params, limit, offset),
         ).fetchall()
     finally:
         con.close()
@@ -366,23 +394,38 @@ def reprice_order(type_id: int):
 
 @app.get("/orders/history")
 def list_order_history(
-    limit: int = 100, offset: int = 0, sort: str = "issued", dir: str = "desc"
+    limit: int = 100,
+    offset: int = 0,
+    sort: str = "issued",
+    dir: str = "desc",
+    search: str | None = None,
 ):
     """Return recently closed character orders with fill percentage and state."""
     allowed = {"issued": "issued", "price": "price", "type_id": "type_id"}
     col = allowed.get(sort, "issued")
     direction = "ASC" if dir.lower() == "asc" else "DESC"
+    join = ""
+    where = ["state != 'open'"]
+    params: list[Any] = []
+    if search:
+        join = " JOIN types ON char_orders.type_id = types.type_id"
+        if search.isdigit():
+            where.append("(char_orders.type_id = ? OR types.name LIKE ?)")
+            params.extend([int(search), f"%{search}%"])
+        else:
+            where.append("types.name LIKE ?")
+            params.append(f"%{search}%")
     con = connect()
     try:
         rows = con.execute(
             f"""
-            SELECT order_id, is_buy, type_id, price, volume_total, volume_remain, issued, state, escrow
-            FROM char_orders
-            WHERE state != 'open'
+            SELECT order_id, is_buy, char_orders.type_id, price, volume_total, volume_remain, issued, state, escrow
+            FROM char_orders{join}
+            WHERE {' AND '.join(where)}
             ORDER BY {col} {direction}
             LIMIT ? OFFSET ?
             """,
-            (limit, offset),
+            (*params, limit, offset),
         ).fetchall()
     finally:
         con.close()
