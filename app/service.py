@@ -226,6 +226,9 @@ def list_recommendations(
     dir: str = "desc",
     min_net: float = 0.0,
     min_mom: float = 0.0,
+    min_vol: float = 0.0,
+    category: int | None = None,
+    meta: int | None = None,
     search: str | None = None,
 ):
     """Return recent recommendations filtered by net spread and MoM uplift."""
@@ -234,12 +237,26 @@ def list_recommendations(
         "net_pct": "net_pct",
         "uplift_mom": "uplift_mom",
         "daily_capacity": "daily_capacity",
+        "volume": "tr.vol_30d_avg",
     }
     col = allowed.get(sort, "ts_utc")
     direction = "ASC" if dir.lower() == "asc" else "DESC"
-    where = ["net_pct >= ?", "uplift_mom >= ?"]
-    params: list[Any] = [min_net, min_mom]
-    join = " JOIN types ON recommendations.type_id = types.type_id"
+    where = [
+        "net_pct >= ?",
+        "uplift_mom >= ?",
+        "COALESCE(tr.vol_30d_avg,0) >= ?",
+    ]
+    params: list[Any] = [min_net, min_mom, min_vol]
+    join = (
+        " JOIN types ON recommendations.type_id = types.type_id"
+        " LEFT JOIN type_trends tr ON tr.type_id = recommendations.type_id"
+    )
+    if category is not None:
+        where.append("types.category_id = ?")
+        params.append(category)
+    if meta is not None:
+        where.append("COALESCE(types.meta_level,0) >= ?")
+        params.append(meta)
     if search:
         if search.isdigit():
             where.append("(recommendations.type_id = ? OR types.name LIKE ?)")

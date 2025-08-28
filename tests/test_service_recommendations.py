@@ -27,8 +27,18 @@ def _seed_recommendations(con):
 def _seed_types(con):
     con.execute(
         """
-        INSERT INTO types(type_id, name, group_id)
-        VALUES (1, 'Foo', 10), (2, 'Bar', 20)
+        INSERT INTO types(type_id, name, group_id, category_id, meta_level)
+        VALUES (1, 'Foo', 10, 6, 1), (2, 'Bar', 20, 7, 0)
+        """
+    )
+    con.commit()
+
+
+def _seed_trends(con):
+    con.execute(
+        """
+        INSERT INTO type_trends(type_id, mom_pct, vol_30d_avg, vol_prev30_avg)
+        VALUES (1, 0.25, 500, 400), (2, 0.30, 100, 80)
         """
     )
     con.commit()
@@ -41,6 +51,7 @@ def test_list_recommendations_filters(tmp_path, monkeypatch):
     con = db.connect()
     try:
         _seed_types(con)
+        _seed_trends(con)
         _seed_recommendations(con)
         type_cache.refresh_type_name_cache()
     finally:
@@ -63,9 +74,22 @@ def test_list_recommendations_filters(tmp_path, monkeypatch):
     # Filter by MoM uplift should exclude both when threshold high
     resp = client.get("/recommendations", params={"min_mom": 0.35})
     assert resp.status_code == 200
-    assert data["results"]
-    data2 = resp.json()
-    assert data2["results"] == []
+    assert resp.json()["results"] == []
+
+    # Filter by minimum volume using type_trends
+    resp = client.get("/recommendations", params={"min_vol": 400})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["results"]) == 1
+    assert data["results"][0]["type_id"] == 1
+
+    # Filter by category and meta level
+    resp = client.get("/recommendations", params={"category": 6})
+    assert resp.status_code == 200
+    assert len(resp.json()["results"]) == 1
+    resp = client.get("/recommendations", params={"meta": 1})
+    assert resp.status_code == 200
+    assert len(resp.json()["results"]) == 1
 
 
 def test_recommendations_sort_and_offset(tmp_path, monkeypatch):
@@ -74,6 +98,7 @@ def test_recommendations_sort_and_offset(tmp_path, monkeypatch):
     con = db.connect()
     try:
         _seed_types(con)
+        _seed_trends(con)
         _seed_recommendations(con)
         type_cache.refresh_type_name_cache()
     finally:
@@ -104,6 +129,7 @@ def test_recommendations_search(tmp_path, monkeypatch):
     con = db.connect()
     try:
         _seed_types(con)
+        _seed_trends(con)
         _seed_recommendations(con)
         type_cache.refresh_type_name_cache()
     finally:
