@@ -21,6 +21,7 @@ export default function Recommendations() {
   const [recs, setRecs] = useState<Rec[]>([]);
   const [minNet, setMinNet] = useState(0);
   const [minMom, setMinMom] = useState(0);
+  const [search, setSearch] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Rec | null>(null);
@@ -29,7 +30,7 @@ export default function Recommendations() {
   async function refresh() {
     setLoading(true);
     try {
-      const data = await getRecommendations(50, minNet, minMom);
+      const data = await getRecommendations(50, minNet, minMom, search);
       setRecs(data.results || []);
       const wl = await getWatchlist();
       setWatchlist(new Set((wl.items || []).map((i: { type_id: number }) => i.type_id)));
@@ -79,6 +80,15 @@ export default function Recommendations() {
         </label>
         <label style={{ marginLeft: '1em' }}>
           Min MoM %: <input type="number" value={minMom} onChange={e => setMinMom(Number(e.target.value))} />
+        </label>
+        <label style={{ marginLeft: '1em' }}>
+          Search:{' '}
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="name or id"
+          />
         </label>
         <button style={{ marginLeft: '1em' }} onClick={refresh} disabled={loading}>Refresh</button>
       </div>

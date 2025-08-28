@@ -23,12 +23,13 @@ export default function Orders() {
   const [history, setHistory] = useState<Order[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
 
   async function refresh() {
     setLoading(true);
     try {
-      const open = await getOpenOrders();
-      const hist = await getOrderHistory();
+      const open = await getOpenOrders(100, search);
+      const hist = await getOrderHistory(100, search);
       const openList = open.orders || [];
       const histList = hist.orders || [];
       setOpenOrders(openList);
@@ -47,6 +48,7 @@ export default function Orders() {
 
   useEffect(() => {
     refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -54,7 +56,18 @@ export default function Orders() {
       <h2>Orders</h2>
       <ErrorBanner message={error} />
       {loading && <Spinner />}
-      <button onClick={refresh} disabled={loading}>Refresh</button>
+      <div>
+        <label>
+          Search:{' '}
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="name or id"
+          />
+        </label>
+        <button onClick={refresh} disabled={loading} style={{ marginLeft: '1em' }}>Refresh</button>
+      </div>
 
       <h3>Open Orders</h3>
       <table>

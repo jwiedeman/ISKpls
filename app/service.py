@@ -238,9 +238,8 @@ def list_recommendations(
     direction = "ASC" if dir.lower() == "asc" else "DESC"
     where = ["net_pct >= ?", "uplift_mom >= ?"]
     params: list[Any] = [min_net, min_mom]
-    join = ""
+    join = " JOIN types ON recommendations.type_id = types.type_id"
     if search:
-        join = " JOIN types ON recommendations.type_id = types.type_id"
         if search.isdigit():
             where.append("(recommendations.type_id = ? OR types.name LIKE ?)")
             params.extend([int(search), f"%{search}%"])
@@ -252,7 +251,7 @@ def list_recommendations(
     try:
         rows = con.execute(
             f"""
-            SELECT recommendations.type_id, station_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json
+            SELECT recommendations.type_id, types.name, station_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json
             FROM recommendations{join}
             WHERE {' AND '.join(where)}
             ORDER BY {col} {direction}
@@ -263,7 +262,7 @@ def list_recommendations(
     finally:
         con.close()
     results = []
-    for type_id, station_id, ts, net, mom, cap, rationale in rows:
+    for type_id, type_name, station_id, ts, net, mom, cap, rationale in rows:
         try:
             details = json.loads(rationale) if rationale else {}
         except json.JSONDecodeError:
@@ -271,7 +270,7 @@ def list_recommendations(
         results.append(
             {
                 "type_id": type_id,
-                "type_name": get_type_name(type_id),
+                "type_name": type_name or get_type_name(type_id),
                 "station_id": station_id,
                 "ts_utc": ts,
                 "net_pct": net,
@@ -298,11 +297,10 @@ def list_open_orders(
     allowed = {"issued": "issued", "price": "price", "type_id": "type_id"}
     col = allowed.get(sort, "issued")
     direction = "ASC" if dir.lower() == "asc" else "DESC"
-    join = ""
+    join = " JOIN types ON char_orders.type_id = types.type_id"
     where = ["state='open'"]
     params: list[Any] = []
     if search:
-        join = " JOIN types ON char_orders.type_id = types.type_id"
         if search.isdigit():
             where.append("(char_orders.type_id = ? OR types.name LIKE ?)")
             params.extend([int(search), f"%{search}%"])
@@ -313,7 +311,7 @@ def list_open_orders(
     try:
         rows = con.execute(
             f"""
-            SELECT order_id, is_buy, char_orders.type_id, price, volume_total, volume_remain, issued, escrow
+            SELECT order_id, is_buy, char_orders.type_id, types.name, price, volume_total, volume_remain, issued, escrow
             FROM char_orders{join}
             WHERE {' AND '.join(where)}
             ORDER BY {col} {direction}
@@ -328,6 +326,7 @@ def list_open_orders(
         order_id,
         is_buy,
         type_id,
+        type_name,
         price,
         vol_total,
         vol_remain,
@@ -340,7 +339,7 @@ def list_open_orders(
                 "order_id": order_id,
                 "is_buy": bool(is_buy),
                 "type_id": type_id,
-                "type_name": get_type_name(type_id),
+                "type_name": type_name or get_type_name(type_id),
                 "price": price,
                 "volume_total": vol_total,
                 "volume_remain": vol_remain,
@@ -404,11 +403,10 @@ def list_order_history(
     allowed = {"issued": "issued", "price": "price", "type_id": "type_id"}
     col = allowed.get(sort, "issued")
     direction = "ASC" if dir.lower() == "asc" else "DESC"
-    join = ""
+    join = " JOIN types ON char_orders.type_id = types.type_id"
     where = ["state != 'open'"]
     params: list[Any] = []
     if search:
-        join = " JOIN types ON char_orders.type_id = types.type_id"
         if search.isdigit():
             where.append("(char_orders.type_id = ? OR types.name LIKE ?)")
             params.extend([int(search), f"%{search}%"])
@@ -419,7 +417,7 @@ def list_order_history(
     try:
         rows = con.execute(
             f"""
-            SELECT order_id, is_buy, char_orders.type_id, price, volume_total, volume_remain, issued, state, escrow
+            SELECT order_id, is_buy, char_orders.type_id, types.name, price, volume_total, volume_remain, issued, state, escrow
             FROM char_orders{join}
             WHERE {' AND '.join(where)}
             ORDER BY {col} {direction}
@@ -434,6 +432,7 @@ def list_order_history(
         order_id,
         is_buy,
         type_id,
+        type_name,
         price,
         vol_total,
         vol_remain,
@@ -447,7 +446,7 @@ def list_order_history(
                 "order_id": order_id,
                 "is_buy": bool(is_buy),
                 "type_id": type_id,
-                "type_name": get_type_name(type_id),
+                "type_name": type_name or get_type_name(type_id),
                 "price": price,
                 "volume_total": vol_total,
                 "volume_remain": vol_remain,

@@ -33,25 +33,30 @@ export async function runJob(name: string) {
   return res.json();
 }
 
-export async function getRecommendations(limit = 50, minNet = 0, minMom = 0) {
+export async function getRecommendations(limit = 50, minNet = 0, minMom = 0, search = '') {
   const params = new URLSearchParams({
     limit: String(limit),
     min_net: String(minNet),
     min_mom: String(minMom),
   });
+  if (search) params.set('search', search);
   const res = await fetch(`${API_BASE}/recommendations?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch recommendations');
   return res.json();
 }
 
-export async function getOpenOrders(limit = 100) {
-  const res = await fetch(`${API_BASE}/orders/open?limit=${limit}`);
+export async function getOpenOrders(limit = 100, search = '') {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (search) params.set('search', search);
+  const res = await fetch(`${API_BASE}/orders/open?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch open orders');
   return res.json();
 }
 
-export async function getOrderHistory(limit = 100) {
-  const res = await fetch(`${API_BASE}/orders/history?limit=${limit}`);
+export async function getOrderHistory(limit = 100, search = '') {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (search) params.set('search', search);
+  const res = await fetch(`${API_BASE}/orders/history?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch order history');
   return res.json();
 }
