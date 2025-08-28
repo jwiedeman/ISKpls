@@ -119,6 +119,34 @@ export async function removeWatchlist(typeId: number) {
   return res.json();
 }
 
+export interface Snipe {
+  type_id: number;
+  type_name: string;
+  best_bid: number;
+  best_ask: number;
+  units: number;
+  net: number;
+  net_pct: number;
+  z_score: number;
+}
+
+export async function getSnipes(
+  limit = 20,
+  minNet = 0.02,
+  epsilon = 0.003,
+  z = 2.5,
+): Promise<{ snipes: Snipe[] }> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    min_net: String(minNet),
+    epsilon: String(epsilon),
+    z: String(z),
+  });
+  const res = await fetch(`${API_BASE}/snipes?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch snipes');
+  return res.json();
+}
+
 export interface AuthStatus {
   has_token: boolean;
   expires_at: number;
