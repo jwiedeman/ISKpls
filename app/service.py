@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from contextlib import asynccontextmanager
+from typing import Any
 from .settings_service import get_settings, update_settings, FIELD_META, validate_settings
 from .recommender import build_recommendations
 from .scheduler import run_tick
@@ -356,6 +357,66 @@ def list_order_history(
             }
         )
     return {"orders": orders}
+
+
+@app.get("/portfolio/inventory")
+def list_inventory(
+    limit: int = 100,
+    offset: int = 0,
+    sort: str = "mark",
+    dir: str = "desc",
+    search: str | None = None,
+):
+    """Return aggregated inventory positions with valuations."""
+    allowed = {
+        "type_id": "a.type_id",
+        "quantity": "qty",
+        "quicksell": "qs_value",
+        "mark": "mk_value",
+    }
+    col = allowed.get(sort, "mk_value")
+    direction = "ASC" if dir.lower() == "asc" else "DESC"
+    con = connect()
+    try:
+        where = ""
+        params: list[Any] = []
+        if search:
+            try:
+                tid = int(search)
+                where = "WHERE a.type_id=?"
+                params.append(tid)
+            except ValueError:
+                where = "WHERE t.name LIKE ?"
+                params.append(f"%{search}%")
+        rows = con.execute(
+            f"""
+            SELECT a.type_id, t.name, SUM(a.quantity) AS qty,
+                   SUM(a.quantity * COALESCE(v.quicksell_bid,0)) AS qs_value,
+                   SUM(a.quantity * COALESCE(v.mark_ask, v.quicksell_bid,0)) AS mk_value
+            FROM assets a
+            LEFT JOIN types t ON t.type_id=a.type_id
+            LEFT JOIN type_valuations v ON v.type_id=a.type_id
+            {where}
+            GROUP BY a.type_id, t.name
+            ORDER BY {col} {direction}
+            LIMIT ? OFFSET ?
+            """,
+            (*params, limit, offset),
+        ).fetchall()
+    finally:
+        con.close()
+    items = []
+    for type_id, name, qty, qs_val, mk_val in rows:
+        items.append(
+            {
+                "type_id": type_id,
+                "type_name": name or get_type_name(type_id),
+                "quantity": qty,
+                "quicksell": qs_val,
+                "mark": mk_val,
+            }
+        )
+    return {"items": items}
 
 
 @app.get("/portfolio/nav")
