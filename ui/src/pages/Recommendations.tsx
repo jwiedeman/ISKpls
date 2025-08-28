@@ -21,6 +21,7 @@ interface Rec {
   best_bid: number | null;
   best_ask: number | null;
   daily_volume: number | null;
+  snapshot_age_ms: number | null;
   details: Record<string, unknown>;
 }
 
@@ -37,6 +38,15 @@ const columns: ColumnDef<Rec>[] = [
   { accessorKey: 'best_bid', header: 'Best Bid', meta: { numeric: true } },
   { accessorKey: 'best_ask', header: 'Best Ask', meta: { numeric: true } },
   { accessorKey: 'daily_volume', header: 'Daily Vol', meta: { numeric: true } },
+  {
+    accessorKey: 'snapshot_age_ms',
+    header: 'Fresh',
+    cell: info => {
+      const age = info.getValue<number | null>() ?? 0;
+      const color = age < 120000 ? 'green' : age < 600000 ? 'yellow' : 'red';
+      return <span style={{ color }}>●</span>;
+    }
+  },
   { accessorKey: 'ts_utc', header: 'Updated' },
 ];
 

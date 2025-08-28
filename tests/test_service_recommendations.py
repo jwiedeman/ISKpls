@@ -44,6 +44,18 @@ def _seed_trends(con):
     con.commit()
 
 
+def _seed_snapshots(con):
+    con.execute(
+        """
+        INSERT INTO market_snapshots(ts_utc, type_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units)
+        VALUES
+        ('2024-01-01T00:00:00',1,10,12,0,0,0,0),
+        ('2024-01-01T00:00:00',2,11,13,0,0,0,0)
+        """
+    )
+    con.commit()
+
+
 def test_list_recommendations_filters(tmp_path, monkeypatch):
     # Redirect DB to temporary file and seed with sample data
     monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.sqlite3")
@@ -53,6 +65,7 @@ def test_list_recommendations_filters(tmp_path, monkeypatch):
         _seed_types(con)
         _seed_trends(con)
         _seed_recommendations(con)
+        _seed_snapshots(con)
         type_cache.refresh_type_name_cache()
     finally:
         con.close()
@@ -71,6 +84,7 @@ def test_list_recommendations_filters(tmp_path, monkeypatch):
     assert rec["best_bid"] == 10.0
     assert rec["best_ask"] == 12.0
     assert rec["daily_volume"] == 500.0
+    assert rec["snapshot_age_ms"] > 0
 
     # Filter by MoM uplift should exclude both when threshold high
     resp = client.get("/recommendations", params={"min_mom": 0.35})
@@ -102,6 +116,7 @@ def test_recommendations_sort_and_offset(tmp_path, monkeypatch):
         _seed_types(con)
         _seed_trends(con)
         _seed_recommendations(con)
+        _seed_snapshots(con)
         type_cache.refresh_type_name_cache()
     finally:
         con.close()
@@ -133,6 +148,7 @@ def test_recommendations_search(tmp_path, monkeypatch):
         _seed_types(con)
         _seed_trends(con)
         _seed_recommendations(con)
+        _seed_snapshots(con)
         type_cache.refresh_type_name_cache()
     finally:
         con.close()

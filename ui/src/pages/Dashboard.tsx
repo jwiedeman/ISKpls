@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getStatus, runJob, type StatusSnapshot, getWatchlist } from '../api';
+import { getStatus, runJob, type StatusSnapshot, getWatchlist, getCoverage } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 import TypeName from '../TypeName';
@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [watchlist, setWatchlist] = useState<number[]>([]);
+  const [coverage, setCoverage] = useState<any>(null);
 
   async function refresh() {
     setLoading(true);
@@ -27,6 +28,8 @@ export default function Dashboard() {
       const wl = await getWatchlist();
       const ids: number[] = (wl.items || []).map((i: { type_id: number }) => i.type_id);
       setWatchlist(ids);
+      const cov = await getCoverage();
+      setCoverage(cov);
       setError('');
     } catch (e: unknown) {
       if (e instanceof Error) {
@@ -66,6 +69,12 @@ export default function Dashboard() {
       {loading && <Spinner />}
       {esi && (
         <p>ESI Error Limit: {esi.error_limit_remain} (reset {esi.error_limit_reset}s)</p>
+      )}
+      {coverage && (
+        <p>
+          Types indexed: {coverage.types_indexed} · Books 10m: {coverage.books_last_10m} ·
+          Median age: {Math.round(coverage.median_snapshot_age_ms / 1000)}s
+        </p>
       )}
       <button disabled={loading} onClick={() => run('scheduler_tick')}>Run Scheduler</button>
       <button disabled={loading} onClick={() => run('recommendations')}>Build Recommendations</button>
