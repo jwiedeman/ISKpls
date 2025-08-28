@@ -7,17 +7,19 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app import service, db
 from app import type_cache
+from app.config import STATION_ID
 
 
 def _seed_recommendations(con):
     con.execute(
         """
-        INSERT INTO recommendations(type_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json)
+        INSERT INTO recommendations(type_id, station_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json)
         VALUES
-        (1, '2024-01-01T00:00:00', 0.1, 0.25, 1000,
+        (1, ?, '2024-01-01T00:00:00', 0.1, 0.25, 1000,
          '{"best_bid": 10.0, "best_ask": 12.0, "daily_volume": 500.0}'),
-        (2, '2024-01-02T00:00:00', 0.05, 0.30, 2000, '{}')
-        """
+        (2, ?, '2024-01-02T00:00:00', 0.05, 0.30, 2000, '{}')
+        """,
+        (STATION_ID, STATION_ID),
     )
     con.commit()
 
@@ -53,6 +55,7 @@ def test_list_recommendations_filters(tmp_path, monkeypatch):
     rec = data["results"][0]
     assert rec["type_id"] == 1
     assert rec["type_name"] == "Foo"
+    assert rec["station_id"] == STATION_ID
     assert rec["best_bid"] == 10.0
     assert rec["best_ask"] == 12.0
     assert rec["daily_volume"] == 500.0

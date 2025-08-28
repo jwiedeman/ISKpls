@@ -1,8 +1,7 @@
-from datetime import datetime
 import json
 from .db import connect
 from .market import evaluate_type
-from .config import MIN_DAILY_VOL
+from .config import MIN_DAILY_VOL, STATION_ID
 from .jobs import record_job
 
 
@@ -14,7 +13,6 @@ def build_recommendations(limit=50):
             "SELECT type_id FROM type_trends WHERE vol_30d_avg >= ? ORDER BY mom_pct DESC LIMIT ?",
             (MIN_DAILY_VOL, limit),
         ).fetchall()
-        now = datetime.utcnow().isoformat()
         results = []
         for (type_id,) in rows:
             rec = evaluate_type(type_id)
@@ -22,13 +20,19 @@ def build_recommendations(limit=50):
                 continue
             con.execute(
                 """
-                INSERT OR REPLACE INTO recommendations
-                (type_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO recommendations
+                (type_id, station_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json)
+                VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)
+                ON CONFLICT(type_id, station_id) DO UPDATE SET
+                    ts_utc = CURRENT_TIMESTAMP,
+                    net_pct = excluded.net_pct,
+                    uplift_mom = excluded.uplift_mom,
+                    daily_capacity = excluded.daily_capacity,
+                    rationale_json = excluded.rationale_json
                 """,
                 (
                     rec["type_id"],
-                    now,
+                    STATION_ID,
                     rec["net_spread_pct"],
                     rec["uplift_mom"],
                     rec["daily_isk_capacity"],
