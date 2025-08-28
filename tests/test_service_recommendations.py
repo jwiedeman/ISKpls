@@ -61,6 +61,7 @@ def test_db_items(tmp_path, monkeypatch):
     for row in data["rows"]:
         assert row["profit_pct"] >= 0
         assert "last_updated" in row
+        assert row["has_both_sides"] is True
 
 
 def test_recommendations_show_all(tmp_path, monkeypatch):
@@ -78,11 +79,13 @@ def test_recommendations_show_all(tmp_path, monkeypatch):
     data = resp.json()
     assert data["total"] == 1
     assert data["rows"][0]["type_id"] == 1
+    assert data["rows"][0]["has_both_sides"] is True
     resp = client.get("/recommendations", params={"show_all": True})
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 2
     assert {r["type_id"] for r in data["rows"]} == {1, 2}
+    assert all(r["has_both_sides"] for r in data["rows"])
 
 
 def seed_legacy(con):
@@ -133,3 +136,4 @@ def test_recommendations_legacy_mode(tmp_path, monkeypatch):
     data = resp.json()
     assert data["total"] == 1
     assert data["rows"][0]["type_id"] == 1
+    assert data["rows"][0]["has_both_sides"] is True

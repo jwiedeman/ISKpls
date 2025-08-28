@@ -278,6 +278,7 @@ def list_db_items(
     results = []
     deal_filter = {d.title() for d in (deal or [])}
     for tid, tname, bid, ask, ts, mom, vol in rows:
+        has_both = bid is not None and ask is not None
         profit_isk, profit_pct = compute_profit(bid, ask, fees, tick)
         if profit_pct < min_profit_pct:
             continue
@@ -299,6 +300,7 @@ def list_db_items(
                 "deal": label,
                 "mom": mom,
                 "est_daily_vol": vol,
+                "has_both_sides": has_both,
             }
         )
     allowed = {
@@ -395,6 +397,7 @@ def legacy_list_recommendations(
         daily_cap,
         rationale,
     ) in rows:
+        has_both = bid is not None and ask is not None
         profit_isk, profit_pct = compute_profit(bid, ask, fees, tick)
         if profit_pct < min_profit_pct:
             continue
@@ -428,6 +431,7 @@ def legacy_list_recommendations(
                 "uplift_mom": uplift_mom,
                 "daily_capacity": daily_cap,
                 "details": details,
+                "has_both_sides": has_both,
             }
         )
     allowed = {
@@ -535,6 +539,7 @@ def list_recommendations(
         daily_cap,
         rationale,
     ) in rows:
+        has_both = bid is not None and ask is not None
         profit_isk, profit_pct = compute_profit(bid, ask, fees, tick)
         if profit_pct < min_profit_pct:
             continue
@@ -566,6 +571,7 @@ def list_recommendations(
                 "uplift_mom": uplift_mom,
                 "daily_capacity": daily_cap,
                 "details": details,
+                "has_both_sides": has_both,
             }
         )
     allowed = {
