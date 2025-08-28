@@ -215,6 +215,9 @@ def list_recommendations(limit: int = 50, min_net: float = 0.0, min_mom: float =
                 "net_pct": net,
                 "uplift_mom": mom,
                 "daily_capacity": cap,
+                "best_bid": details.get("best_bid"),
+                "best_ask": details.get("best_ask"),
+                "daily_volume": details.get("daily_volume"),
                 "details": details,
             }
         )

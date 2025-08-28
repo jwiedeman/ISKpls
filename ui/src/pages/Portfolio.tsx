@@ -48,13 +48,13 @@ export default function Portfolio() {
       {snap && (
         <table>
           <tbody>
-            <tr><td>Wallet Balance</td><td>{snap.wallet_balance.toFixed(2)}</td></tr>
-            <tr><td>Buy Escrow</td><td>{snap.buy_escrow.toFixed(2)}</td></tr>
-            <tr><td>Sell Gross</td><td>{snap.sell_gross.toFixed(2)}</td></tr>
-            <tr><td>Inventory (Quicksell)</td><td>{snap.inventory_quicksell.toFixed(2)}</td></tr>
-            <tr><td>Inventory (Mark)</td><td>{snap.inventory_mark.toFixed(2)}</td></tr>
-            <tr><td>NAV (Quicksell)</td><td>{snap.nav_quicksell.toFixed(2)}</td></tr>
-            <tr><td>NAV (Mark)</td><td>{snap.nav_mark.toFixed(2)}</td></tr>
+            <tr><td>Wallet Balance</td><td>{snap.wallet_balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+            <tr><td>Buy Escrow</td><td>{snap.buy_escrow.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+            <tr><td>Sell Gross</td><td>{snap.sell_gross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+            <tr><td>Inventory (Quicksell)</td><td>{snap.inventory_quicksell.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+            <tr><td>Inventory (Mark)</td><td>{snap.inventory_mark.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+            <tr><td>NAV (Quicksell)</td><td>{snap.nav_quicksell.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+            <tr><td>NAV (Mark)</td><td>{snap.nav_mark.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
           </tbody>
         </table>
       )}
