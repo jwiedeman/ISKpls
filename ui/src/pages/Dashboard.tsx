@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getStatus, runJob, type StatusResp, getWatchlist } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
-import { useTypeNames } from '../TypeNamesContext';
+import TypeName from '../TypeName';
 
 interface JobRec {
   name: string;
@@ -16,7 +16,6 @@ export default function Dashboard() {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [watchlist, setWatchlist] = useState<number[]>([]);
-  const typeNames = useTypeNames();
 
   async function refresh() {
     setLoading(true);
@@ -79,7 +78,7 @@ export default function Dashboard() {
       <h3>Watchlist</h3>
       <ul>
         {watchlist.map(id => (
-          <li key={id}>{typeNames[id] || id}</li>
+          <li key={id}><TypeName id={id} /></li>
         ))}
       </ul>
     </div>
