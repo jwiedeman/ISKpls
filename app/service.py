@@ -148,6 +148,35 @@ def types_map(ids: str | None = None):
     return {tid: name for tid, name in rows}
 
 
+@app.get("/types/search")
+def search_types(q: str, limit: int = 20):
+    """Search types by ID or name substring.
+
+    ``q`` may be a type ID or part of a type name. Results include the
+    resolved ``type_name`` for easier display on the client.
+    """
+    con = connect()
+    try:
+        if q.isdigit():
+            tid = int(q)
+            name = ensure_type_names([tid]).get(tid)
+            results = []
+            if name:
+                results.append({"type_id": tid, "type_name": name})
+            return {"results": results}
+        rows = con.execute(
+            "SELECT type_id, name FROM types WHERE name LIKE ? ORDER BY name LIMIT ?",
+            (f"%{q}%", limit),
+        ).fetchall()
+    finally:
+        con.close()
+    return {
+        "results": [
+            {"type_id": tid, "type_name": name} for tid, name in rows
+        ]
+    }
+
+
 @app.get("/watchlist")
 def get_watchlist():
     """Return all watchlisted type IDs with cached names."""
