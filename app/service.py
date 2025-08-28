@@ -12,6 +12,8 @@ from .esi import get_error_limit_status
 from .auth import get_token, token_status
 from .scheduler_config import get_scheduler_settings, update_scheduler_settings
 from .type_cache import get_type_name, refresh_type_name_cache, ensure_type_names
+from .snipes import find_snipes
+from .config import SNIPE_EPSILON
 import json
 
 
@@ -175,6 +177,12 @@ def remove_watchlist(type_id: int):
     finally:
         con.close()
     return {"status": "ok"}
+
+
+@app.get("/snipes")
+def list_snipes(limit: int = 20, epsilon: float = SNIPE_EPSILON):
+    """Return potential underpriced sell orders for quick flips."""
+    return {"snipes": find_snipes(limit=limit, epsilon=epsilon)}
 
 
 @app.get("/recommendations")
