@@ -5,14 +5,13 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from .db import connect
 from .jita_snapshots import refresh_one
-from .config import REGION_ID
 from .jobs import record_job
-from .status import emit_sync
+from .status import emit_sync, STATUS
 
 logger = logging.getLogger(__name__)
 
 
-TIERS = {"A": 90, "B": 240, "C": 360, "D": 1440}
+TIERS = {"A": 45, "B": 120, "C": 360, "D": 1440}
 
 
 def classify_tier(vol):
@@ -25,7 +24,7 @@ def classify_tier(vol):
     return "D"
 
 
-def fill_queue_from_trends(max_types=500):
+def fill_queue_from_trends(max_types=1500):
     logger.info("Filling queue from trends")
     con = connect()
     rows = con.execute(
@@ -47,8 +46,26 @@ def fill_queue_from_trends(max_types=500):
     logger.info("Queue filled for %s types", len(rows))
 
 
-def run_tick(max_calls: int = 200, workers: int = 4) -> None:
+from . import esi
+
+# track adaptive worker count to respect ESI error limits
+_ADAPTIVE_WORKERS = 6
+
+
+def _select_workers(target: int) -> int:
+    """Adjust worker pool size based on cached ESI error limit headers."""
+    global _ADAPTIVE_WORKERS
+    remain = esi.ERROR_LIMIT_REMAIN
+    if remain < 5 and _ADAPTIVE_WORKERS > 1:
+        _ADAPTIVE_WORKERS -= 1
+    elif remain > 80 and _ADAPTIVE_WORKERS < target:
+        _ADAPTIVE_WORKERS += 1
+    return min(target, _ADAPTIVE_WORKERS)
+
+
+def run_tick(max_calls: int = 800, workers: int = 6) -> None:
     logger.info("Running scheduler tick")
+    workers = _select_workers(workers)
     con = connect()
     try:
         due = con.execute(
@@ -97,4 +114,17 @@ def run_tick(max_calls: int = 200, workers: int = 4) -> None:
         raise
     else:
         ms = int((time.time() - t0) * 1000)
+        # update recent type refresh counts for status snapshot
+        con2 = connect()
+        try:
+            last10 = con2.execute(
+                "SELECT COUNT(*) FROM type_status WHERE last_orders_refresh >= datetime('now', '-10 minutes')"
+            ).fetchone()[0]
+            last60 = con2.execute(
+                "SELECT COUNT(*) FROM type_status WHERE last_orders_refresh >= datetime('now', '-60 minutes')"
+            ).fetchone()[0]
+        finally:
+            con2.close()
+        STATUS["counts"] = {"types_10m": last10, "types_1h": last60}
+        emit_sync({"type": "counts", "counts": STATUS["counts"]})
         emit_sync({"type": "job_finished", "id": job_id, "ok": True, "items_written": count, "ms": ms})
