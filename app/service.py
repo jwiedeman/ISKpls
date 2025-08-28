@@ -17,7 +17,7 @@ from .snipes import find_snipes
 from .config import SNIPE_EPSILON, SNIPE_Z, SPREAD_BUFFER, STATION_ID
 from .market import margin_after_fees
 from .ticks import tick
-from .status import status_router
+from .status import status_router, start_heartbeat, stop_heartbeat
 import json
 
 
@@ -25,7 +25,11 @@ import json
 async def lifespan(app: FastAPI):
     """Preload the type ID to name mapping."""
     refresh_type_name_cache()
-    yield
+    start_heartbeat()
+    try:
+        yield
+    finally:
+        stop_heartbeat()
 
 
 app = FastAPI(lifespan=lifespan)
