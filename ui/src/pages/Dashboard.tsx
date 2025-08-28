@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getStatus, runJob, type StatusSnapshot, getWatchlist, getCoverage } from '../api';
+import { API_BASE, getStatus, runJob, type StatusSnapshot, getWatchlist, getCoverage } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 import TypeName from '../TypeName';
@@ -18,6 +18,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [watchlist, setWatchlist] = useState<number[]>([]);
   const [coverage, setCoverage] = useState<any>(null);
+  const [inflight, setInflight] = useState<any[]>([]);
+  const [queue, setQueue] = useState<Record<string, number>>({});
 
   async function refresh() {
     setLoading(true);
@@ -25,6 +27,8 @@ export default function Dashboard() {
       const data = await getStatus();
       setJobs(data.last_runs || []);
       setEsi(data.esi);
+      setInflight(data.inflight || []);
+      setQueue(data.queue || {});
       const wl = await getWatchlist();
       const ids: number[] = (wl.items || []).map((i: { type_id: number }) => i.type_id);
       setWatchlist(ids);
@@ -60,6 +64,28 @@ export default function Dashboard() {
 
   useEffect(() => {
     refresh();
+    const wsUrl = API_BASE.replace('http', 'ws') + '/ws';
+    const ws = new WebSocket(wsUrl);
+    ws.onmessage = (ev) => {
+      try {
+        const evt = JSON.parse(ev.data);
+        if (evt.type === 'job_started') {
+          setInflight((prev) => [...prev, { id: evt.id, job: evt.job, detail: evt.meta?.detail, progress: 0 }]);
+        } else if (evt.type === 'job_progress') {
+          setInflight((prev) => prev.map((j) => (j.id === evt.id ? { ...j, progress: evt.progress, detail: evt.detail } : j)));
+        } else if (evt.type === 'job_finished') {
+          setInflight((prev) => prev.filter((j) => j.id !== evt.id));
+          setJobs((prev) => [{ job: evt.job, ts: new Date().toISOString(), ok: evt.ok, ms: evt.ms }, ...prev]);
+        } else if (evt.type === 'esi') {
+          setEsi({ remain: evt.remain, reset: evt.reset });
+        } else if (evt.type === 'queue') {
+          setQueue(evt.depth || {});
+        }
+      } catch {
+        // ignore malformed events
+      }
+    };
+    return () => ws.close();
   }, []);
 
   return (
@@ -67,8 +93,19 @@ export default function Dashboard() {
       <h2>Dashboard</h2>
       <ErrorBanner message={error} />
       {loading && <Spinner />}
-      {esi && (
-        <p>ESI Error Limit: {esi.remain} (reset {esi.reset}s)</p>
+      {esi && (<p>ESI Error Limit: {esi.remain} (reset {esi.reset}s)</p>)}
+      {inflight.length > 0 && (
+        <div>
+          <h4>Now Running</h4>
+          {inflight.map(j => (
+            <div key={j.id}>{j.job} {j.progress ? `${j.progress}%` : ''} {j.detail}</div>
+          ))}
+        </div>
+      )}
+      {Object.keys(queue).length > 0 && (
+        <p>
+          Queue depth: {Object.entries(queue).map(([k,v]) => `${k}:${v}`).join(' · ')}
+        </p>
       )}
       {coverage && (
         <p>
