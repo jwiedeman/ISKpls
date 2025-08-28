@@ -1,38 +1,47 @@
 import React from "react";
 import { useEventStream } from "../useEventStream";
+import type { RunwayEvent } from "../useEventStream";
 
-function useRunwayVM(events: any[]) {
-  const inflight: Record<string, any> = {};
-  const builds: Record<string, any> = {};
-  let esi = { remain: null, reset: null } as any;
-  let queue = { P0: 0, P1: 0, P2: 0, P3: 0 };
-  const logs: any[] = [];
+interface EsiInfo {
+  remain: number | null;
+  reset: number | null;
+}
+
+function useRunwayVM(events: RunwayEvent[]) {
+  const inflight: Record<string, RunwayEvent> = {};
+  const builds: Record<string, RunwayEvent> = {};
+  let esi: EsiInfo = { remain: null, reset: null };
+  let queue: Record<string, number> = { P0: 0, P1: 0, P2: 0, P3: 0 };
+  const logs: RunwayEvent[] = [];
 
   for (const e of events) {
-    if (e.type === "job_started") inflight[e.runId] = { ...e, progress: 0 };
-    if (e.type === "job_progress" && inflight[e.runId])
-      (inflight[e.runId].progress = e.progress,
-      (inflight[e.runId].detail = e.detail));
+    if (e.type === "job_started" && e.runId) inflight[e.runId] = { ...e, progress: 0 };
+    if (e.type === "job_progress" && e.runId && inflight[e.runId]) {
+      inflight[e.runId].progress = e.progress ?? 0;
+      inflight[e.runId].detail = e.detail;
+    }
     if (e.type === "job_log") logs.push(e);
-    if (e.type === "job_finished")
+    if (e.type === "job_finished" && e.runId && inflight[e.runId])
       inflight[e.runId] = { ...inflight[e.runId], ...e, done: true };
-    if (e.type === "build_started") builds[e.buildId] = { ...e, progress: 0 };
-    if (e.type === "build_progress" && builds[e.buildId])
-      (builds[e.buildId].progress = e.progress,
-      (builds[e.buildId].stage = e.stage),
-      (builds[e.buildId].detail = e.detail));
-    if (e.type === "build_finished")
+    if (e.type === "build_started" && e.buildId)
+      builds[e.buildId] = { ...e, progress: 0 };
+    if (e.type === "build_progress" && e.buildId && builds[e.buildId]) {
+      builds[e.buildId].progress = e.progress ?? 0;
+      builds[e.buildId].stage = e.stage;
+      builds[e.buildId].detail = e.detail;
+    }
+    if (e.type === "build_finished" && e.buildId && builds[e.buildId])
       builds[e.buildId] = { ...builds[e.buildId], ...e, done: true };
-    if (e.type === "esi") esi = { remain: e.remain, reset: e.reset };
-    if (e.type === "queue") queue = e.depth;
+    if (e.type === "esi") esi = { remain: e.remain ?? null, reset: e.reset ?? null };
+    if (e.type === "queue") queue = e.depth ?? queue;
   }
-  const inflightList = Object.values(inflight).filter((x: any) => !x.done);
+  const inflightList = Object.values(inflight).filter((x) => !x.done);
   const recentJobs = Object.values(inflight)
-    .filter((x: any) => x.done)
+    .filter((x) => x.done)
     .slice(-10)
     .reverse();
   const recentBuilds = Object.values(builds)
-    .filter((x: any) => x.done)
+    .filter((x) => x.done)
     .slice(-5)
     .reverse();
   return { inflightList, recentJobs, recentBuilds, esi, queue, logs };
@@ -63,9 +72,9 @@ export default function Runway() {
       <h3>Now Running</h3>
       <ul>
         {inflightList.length === 0 && <li>None</li>}
-        {inflightList.map((j: any) => (
+        {inflightList.map((j) => (
           <li key={j.runId} title={j.detail}>
-            <strong>{j.job}</strong> {j.progress}% {trunc(j.detail)}
+            <strong>{j.job}</strong> {j.progress}% {trunc(j.detail ?? "")}
           </li>
         ))}
       </ul>
@@ -87,17 +96,17 @@ export default function Runway() {
       </div>
       <h3>Recent Builds</h3>
       <ul>
-        {recentBuilds.map((b: any) => (
-          <li key={b.buildId} title={b.detail}>
-            <strong>{b.job}</strong> {b.progress}% {b.stage} {trunc(b.detail)}
-          </li>
-        ))}
+          {recentBuilds.map((b) => (
+            <li key={b.buildId} title={b.detail}>
+              <strong>{b.job}</strong> {b.progress}% {b.stage} {trunc(b.detail ?? "")}
+            </li>
+          ))}
       </ul>
       <h3>Logs</h3>
       <ul>
-        {logs.slice(-50).map((l: any, i: number) => (
+        {logs.slice(-50).map((l, i) => (
           <li key={i} title={l.message}>
-            {l.level}: {trunc(l.message)}
+            {l.level}: {trunc(l.message ?? "")}
           </li>
         ))}
       </ul>
