@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { getRecommendations, getWatchlist, addWatchlist, removeWatchlist } from '../api';
+import {
+  getRecommendations,
+  getWatchlist,
+  addWatchlist,
+  removeWatchlist,
+  type RecParams,
+} from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 import TypeName from '../TypeName';
@@ -15,14 +21,18 @@ import {
 interface Rec {
   type_id: number;
   type_name: string;
-  ts_utc: string;
-  net_pct: number;
-  uplift_mom: number;
-  daily_capacity: number;
   best_bid: number | null;
   best_ask: number | null;
-  daily_volume: number | null;
-  snapshot_age_ms: number | null;
+  last_updated: string;
+  fresh_ms: number;
+  profit_pct: number;
+  profit_isk: number;
+  deal: string;
+  mom: number | null;
+  est_daily_vol: number | null;
+  net_pct: number | null;
+  uplift_mom: number | null;
+  daily_capacity: number | null;
   details: Record<string, unknown>;
 }
 
@@ -32,31 +42,59 @@ const columns: ColumnDef<Rec>[] = [
     header: 'Item',
     cell: ({ row }) => `${row.original.type_name} · #${row.original.type_id}`,
   },
-  { accessorKey: 'uplift_mom', header: 'MoM %', meta: { numeric: true },
-    cell: info => (info.getValue<number>() * 100).toFixed(2) },
-  { accessorKey: 'net_pct', header: 'Net %', meta: { numeric: true },
-    cell: info => (info.getValue<number>() * 100).toFixed(2) },
+  {
+    accessorKey: 'profit_pct',
+    header: 'Profit %',
+    meta: { numeric: true },
+    cell: (info) => (info.getValue<number>() * 100).toFixed(2),
+  },
+  {
+    accessorKey: 'profit_isk',
+    header: 'Profit ISK',
+    meta: { numeric: true },
+    cell: (info) =>
+      (info.getValue<number>() ?? 0).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+  },
+  { accessorKey: 'deal', header: 'Deal' },
   { accessorKey: 'best_bid', header: 'Best Bid', meta: { numeric: true } },
   { accessorKey: 'best_ask', header: 'Best Ask', meta: { numeric: true } },
-  { accessorKey: 'daily_volume', header: 'Daily Vol', meta: { numeric: true } },
   {
-    accessorKey: 'snapshot_age_ms',
+    accessorKey: 'mom',
+    header: 'MoM %',
+    meta: { numeric: true },
+    cell: (info) =>
+      info.getValue<number | null>() != null
+        ? (info.getValue<number>() * 100).toFixed(2)
+        : '',
+  },
+  {
+    accessorKey: 'est_daily_vol',
+    header: 'Daily Vol',
+    meta: { numeric: true },
+  },
+  {
+    accessorKey: 'fresh_ms',
     header: 'Fresh',
-    cell: info => {
-      const age = info.getValue<number | null>() ?? 0;
+    cell: (info) => {
+      const age = info.getValue<number>() ?? 0;
       const color = age < 120000 ? 'green' : age < 600000 ? 'yellow' : 'red';
       return <span style={{ color }}>●</span>;
-    }
+    },
   },
-  { accessorKey: 'ts_utc', header: 'Updated' },
+  { accessorKey: 'last_updated', header: 'Updated' },
 ];
 
 export default function Recommendations() {
   const [rows, setRows] = useState<Rec[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'net_pct', desc: true }]);
-  const [minNet, setMinNet] = useState(0);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'profit_pct', desc: true },
+  ]);
+  const [minProfit, setMinProfit] = useState(0);
   const [minMom, setMinMom] = useState(0);
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
@@ -68,22 +106,26 @@ export default function Recommendations() {
   async function refresh() {
     setLoading(true);
     try {
-      const sort = sorting[0]?.id ?? 'net_pct';
+      const sort = sorting[0]?.id ?? 'profit_pct';
       const dir = sorting[0]?.desc ? 'desc' : 'asc';
-      const data = await getRecommendations({
+      const params: RecParams = {
         limit: 50,
         offset: page * 50,
         sort,
         dir,
         search,
-        min_net: minNet,
+        min_profit_pct: minProfit,
         min_mom: minMom,
-        all: showAll,
-      });
+        show_all: showAll,
+        mode: 'profit_only',
+      };
+      const data = await getRecommendations(params);
       setRows(data.rows || []);
       setTotal(data.total || 0);
       const wl = await getWatchlist();
-      setWatchlist(new Set((wl.items || []).map((i: { type_id: number }) => i.type_id)));
+      setWatchlist(
+        new Set((wl.items || []).map((i: { type_id: number }) => i.type_id))
+      );
       setError('');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -95,7 +137,7 @@ export default function Recommendations() {
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, sorting, search, showAll]);
+  }, [page, sorting, search, showAll, minProfit, minMom]);
 
   const table = useReactTable({
     data: rows,
@@ -111,14 +153,14 @@ export default function Recommendations() {
     try {
       if (watchlist.has(id)) {
         await removeWatchlist(id);
-        setWatchlist(prev => {
+        setWatchlist((prev) => {
           const next = new Set(prev);
           next.delete(id);
           return next;
         });
       } else {
         await addWatchlist(id);
-        setWatchlist(prev => new Set(prev).add(id));
+        setWatchlist((prev) => new Set(prev).add(id));
       }
     } catch {
       // ignore
@@ -127,9 +169,31 @@ export default function Recommendations() {
 
   function exportCsv() {
     if (!rows.length) return;
-    const headers = ['type_id','type_name','net_pct','uplift_mom','daily_capacity','best_bid','best_ask','daily_volume','ts_utc'];
-    const csvRows = rows.map(r => [r.type_id,r.type_name,r.net_pct,r.uplift_mom,r.daily_capacity,r.best_bid ?? '',r.best_ask ?? '',r.daily_volume ?? '',r.ts_utc]);
-    const csv = [headers.join(','), ...csvRows.map(r => r.join(','))].join('\n');
+    const headers = [
+      'type_id',
+      'type_name',
+      'profit_pct',
+      'profit_isk',
+      'deal',
+      'best_bid',
+      'best_ask',
+      'mom',
+      'est_daily_vol',
+      'last_updated',
+    ];
+    const csvRows = rows.map((r) => [
+      r.type_id,
+      r.type_name,
+      r.profit_pct,
+      r.profit_isk,
+      r.deal,
+      r.best_bid ?? '',
+      r.best_ask ?? '',
+      r.mom ?? '',
+      r.est_daily_vol ?? '',
+      r.last_updated,
+    ]);
+    const csv = [headers.join(','), ...csvRows.map((r) => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -146,29 +210,66 @@ export default function Recommendations() {
       {loading && <Spinner />}
       <div>
         <label>
-          Min Net %: <input type="number" value={minNet} onChange={e => setMinNet(Number(e.target.value))} />
+          Min Profit %:{' '}
+          <input
+            type="number"
+            value={minProfit}
+            onChange={(e) => setMinProfit(Number(e.target.value))}
+          />
         </label>
         <label style={{ marginLeft: '1em' }}>
-          Min MoM %: <input type="number" value={minMom} onChange={e => setMinMom(Number(e.target.value))} />
+          Min MoM %:{' '}
+          <input
+            type="number"
+            value={minMom}
+            onChange={(e) => setMinMom(Number(e.target.value))}
+          />
         </label>
         <label style={{ marginLeft: '1em' }}>
           Search:{' '}
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="name or id" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="name or id"
+          />
         </label>
-        <button style={{ marginLeft: '1em' }} onClick={refresh} disabled={loading}>Refresh</button>
-        <button style={{ marginLeft: '1em' }} onClick={exportCsv} disabled={!rows.length}>Export CSV</button>
+        <button
+          style={{ marginLeft: '1em' }}
+          onClick={refresh}
+          disabled={loading}
+        >
+          Refresh
+        </button>
+        <button
+          style={{ marginLeft: '1em' }}
+          onClick={exportCsv}
+          disabled={!rows.length}
+        >
+          Export CSV
+        </button>
         <label style={{ marginLeft: '1em' }}>
-          <input type="checkbox" checked={showAll} onChange={e => setShowAll(e.target.checked)} /> Show All
+          <input
+            type="checkbox"
+            checked={showAll}
+            onChange={(e) => setShowAll(e.target.checked)}
+          />{' '}
+          Show All
         </label>
       </div>
       <table>
         <thead>
-          {table.getHeaderGroups().map(hg => (
+          {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id}>
               <th>★</th>
-              {hg.headers.map(header => (
-                <th key={header.id} onClick={header.column.getToggleSortingHandler?.()}>
-                  {header.isPlaceholder ? null : header.column.columnDef.header as string}
+              {hg.headers.map((header) => (
+                <th
+                  key={header.id}
+                  onClick={header.column.getToggleSortingHandler?.()}
+                >
+                  {header.isPlaceholder
+                    ? null
+                    : (header.column.columnDef.header as string)}
                 </th>
               ))}
               <th>Explain</th>
@@ -184,28 +285,47 @@ export default function Recommendations() {
               </td>
             </tr>
           ) : (
-            table.getRowModel().rows.map(row => (
+            table.getRowModel().rows.map((row) => (
               <tr key={row.original.type_id}>
                 <td>
-                  <button onClick={() => toggleWatchlist(row.original.type_id)} disabled={loading}>
+                  <button
+                    onClick={() => toggleWatchlist(row.original.type_id)}
+                    disabled={loading}
+                  >
                     {watchlist.has(row.original.type_id) ? '★' : '☆'}
                   </button>
                 </td>
-                {row.getVisibleCells().map(cell => (
-                  <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+                {row.getVisibleCells().map((cell) => (
+                  <td key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
                 ))}
-                <td><button onClick={() => setSelected(row.original)}>Explain</button></td>
+                <td>
+                  <button onClick={() => setSelected(row.original)}>
+                    Explain
+                  </button>
+                </td>
               </tr>
             ))
           )}
         </tbody>
       </table>
       <div style={{ marginTop: '1em' }}>
-        <button disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>Prev</button>
+        <button
+          disabled={page === 0}
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+        >
+          Prev
+        </button>
         <span style={{ margin: '0 1em' }}>
           Page {page + 1} / {Math.max(1, Math.ceil(total / 50))}
         </span>
-        <button disabled={(page + 1) * 50 >= total} onClick={() => setPage(p => p + 1)}>Next</button>
+        <button
+          disabled={(page + 1) * 50 >= total}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Next
+        </button>
       </div>
 
       {selected && (
@@ -223,7 +343,9 @@ export default function Recommendations() {
           }}
         >
           <div style={{ background: '#fff', padding: '1em', maxWidth: '400px' }}>
-            <h3><TypeName id={selected.type_id} name={selected.type_name} /></h3>
+            <h3>
+              <TypeName id={selected.type_id} name={selected.type_name} />
+            </h3>
             <pre>{JSON.stringify(selected.details, null, 2)}</pre>
             <button onClick={() => setSelected(null)}>Close</button>
           </div>
@@ -232,3 +354,4 @@ export default function Recommendations() {
     </div>
   );
 }
+

@@ -77,10 +77,11 @@ export interface RecParams {
   sort?: string;
   dir?: string;
   search?: string;
-  min_net?: number;
+  min_profit_pct?: number;
   min_mom?: number;
   min_vol?: number;
-  all?: boolean;
+  show_all?: boolean;
+  mode?: string;
 }
 
 export async function getRecommendations(params: RecParams = {}) {
@@ -90,13 +91,55 @@ export async function getRecommendations(params: RecParams = {}) {
   if (params.sort) qs.set('sort', params.sort);
   if (params.dir) qs.set('dir', params.dir);
   if (params.search) qs.set('search', params.search);
-  if (params.min_net !== undefined) qs.set('min_net', String(params.min_net));
+  if (params.min_profit_pct !== undefined)
+    qs.set('min_profit_pct', String(params.min_profit_pct));
   if (params.min_mom !== undefined) qs.set('min_mom', String(params.min_mom));
   if (params.min_vol !== undefined) qs.set('min_vol', String(params.min_vol));
-  if (params.all) qs.set('all', 'true');
+  if (params.show_all) qs.set('show_all', 'true');
+  if (params.mode) qs.set('mode', params.mode);
   const res = await fetch(`${API_BASE}/recommendations?${qs.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch recommendations');
   return res.json();
+}
+
+export interface DbParams {
+  limit?: number;
+  offset?: number;
+  sort?: string;
+  dir?: string;
+  search?: string;
+  deal?: string[];
+  min_profit_pct?: number;
+}
+
+export async function getDbItems(params: DbParams = {}) {
+  const qs = new URLSearchParams();
+  if (params.limit !== undefined) qs.set('limit', String(params.limit));
+  if (params.offset !== undefined) qs.set('offset', String(params.offset));
+  if (params.sort) qs.set('sort', params.sort);
+  if (params.dir) qs.set('dir', params.dir);
+  if (params.search) qs.set('search', params.search);
+  if (params.min_profit_pct !== undefined)
+    qs.set('min_profit_pct', String(params.min_profit_pct));
+  if (params.deal)
+    for (const d of params.deal) qs.append('deal', d);
+  const res = await fetch(`${API_BASE}/db/items?${qs.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch db items');
+  return res.json();
+}
+
+export interface DbItem {
+  type_id: number;
+  type_name: string;
+  best_bid: number | null;
+  best_ask: number | null;
+  last_updated: string;
+  fresh_ms: number;
+  profit_pct: number;
+  profit_isk: number;
+  deal: string;
+  mom?: number | null;
+  est_daily_vol?: number | null;
 }
 
 export async function getOpenOrders(limit = 100, search = '') {

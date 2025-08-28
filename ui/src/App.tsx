@@ -8,6 +8,7 @@ import Portfolio from './pages/Portfolio';
 import Snipes from './pages/Snipes';
 import Runway from './pages/Runway';
 import Login from './pages/Login';
+import Db from './pages/Db';
 import { getAuthStatus } from './api';
 import './App.css';
 
@@ -23,6 +24,7 @@ export default function App() {
     <>
       <nav>
         <Link to="/">Dashboard</Link> |
+        <Link to="/db">DB</Link> |
         <Link to="/recommendations">Recommendations</Link> |
         <Link to="/portfolio">Portfolio</Link> |
         <Link to="/snipes">Snipes</Link> |
@@ -32,6 +34,7 @@ export default function App() {
       </nav>
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/db" element={<Db />} />
         <Route path="/recommendations" element={<Recommendations />} />
         <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/snipes" element={<Snipes />} />
