@@ -234,8 +234,14 @@ def list_recommendations(
     category: int | None = None,
     meta: int | None = None,
     search: str | None = None,
+    all: bool = False,
 ):
-    """Return recent recommendations filtered by net spread and MoM uplift."""
+    """Return recent recommendations filtered by net spread and MoM uplift.
+
+    If ``all`` is true, include all trending types even if they did not
+    meet the recommendation filters. For those entries, net spread and
+    other recommendation fields may be ``0`` or ``null``.
+    """
     allowed = {
         "ts_utc": "ts_utc",
         "net_pct": "net_pct",
@@ -245,12 +251,95 @@ def list_recommendations(
     }
     col = allowed.get(sort, "ts_utc")
     direction = "ASC" if dir.lower() == "asc" else "DESC"
+
+    if all:
+        where = ["COALESCE(tr.vol_30d_avg,0) >= ?"]
+        params: list[Any] = [min_vol]
+        join = (
+            f" LEFT JOIN recommendations ON recommendations.type_id = tr.type_id"
+            f" AND recommendations.station_id = {STATION_ID}"
+            " LEFT JOIN types ON tr.type_id = types.type_id"
+        )
+        if category is not None:
+            where.append("types.category_id = ?")
+            params.append(category)
+        if meta is not None:
+            where.append("COALESCE(types.meta_level,0) >= ?")
+            params.append(meta)
+        if search:
+            if search.isdigit():
+                where.append("(tr.type_id = ? OR types.name LIKE ?)")
+                params.extend([int(search), f"%{search}%"])
+            else:
+                where.append("types.name LIKE ?")
+                params.append(f"%{search}%")
+        where_clause = " AND ".join(where) if where else "1=1"
+        con = connect()
+        try:
+            cur = con.cursor()
+            total = cur.execute(
+                f"SELECT COUNT(*) FROM type_trends tr{join} WHERE {where_clause}",
+                params,
+            ).fetchone()[0]
+            rows = cur.execute(
+                f"""
+                SELECT tr.type_id, types.name, station_id, ts_utc,
+                       COALESCE(net_pct, 0) AS net_pct,
+                       COALESCE(uplift_mom, tr.mom_pct) AS uplift_mom,
+                       COALESCE(daily_capacity, 0) AS daily_capacity,
+                       rationale_json
+                FROM type_trends tr{join}
+                WHERE {where_clause}
+                ORDER BY {col} {direction}
+                LIMIT ? OFFSET ?
+                """,
+                (*params, limit, offset),
+            ).fetchall()
+        finally:
+            con.close()
+        results = []
+        now = datetime.utcnow()
+        con = connect()
+        try:
+            cur = con.cursor()
+            for type_id, type_name, station_id, ts, net, mom, cap, rationale in rows:
+                try:
+                    details = json.loads(rationale) if rationale else {}
+                except json.JSONDecodeError:
+                    details = {}
+                last_snap = cur.execute(
+                    "SELECT MAX(ts_utc) FROM market_snapshots WHERE type_id=?",
+                    (type_id,),
+                ).fetchone()[0]
+                age_ms = None
+                if last_snap:
+                    age_ms = int((now - datetime.fromisoformat(last_snap)).total_seconds() * 1000)
+                results.append(
+                    {
+                        "type_id": type_id,
+                        "type_name": type_name or get_type_name(type_id),
+                        "station_id": station_id,
+                        "ts_utc": ts,
+                        "net_pct": net,
+                        "uplift_mom": mom,
+                        "daily_capacity": cap,
+                        "best_bid": details.get("best_bid"),
+                        "best_ask": details.get("best_ask"),
+                        "daily_volume": details.get("daily_volume"),
+                        "snapshot_age_ms": age_ms,
+                        "details": details,
+                    }
+                )
+        finally:
+            con.close()
+        return {"rows": results, "total": total}
+
     where = [
         "net_pct >= ?",
         "uplift_mom >= ?",
         "COALESCE(tr.vol_30d_avg,0) >= ?",
     ]
-    params: list[Any] = [min_net, min_mom, min_vol]
+    params = [min_net, min_mom, min_vol]
     join = (
         " LEFT JOIN types ON recommendations.type_id = types.type_id"
         " LEFT JOIN type_trends tr ON tr.type_id = recommendations.type_id"

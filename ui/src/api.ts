@@ -57,6 +57,7 @@ export interface RecParams {
   min_net?: number;
   min_mom?: number;
   min_vol?: number;
+  all?: boolean;
 }
 
 export async function getRecommendations(params: RecParams = {}) {
@@ -69,6 +70,7 @@ export async function getRecommendations(params: RecParams = {}) {
   if (params.min_net !== undefined) qs.set('min_net', String(params.min_net));
   if (params.min_mom !== undefined) qs.set('min_mom', String(params.min_mom));
   if (params.min_vol !== undefined) qs.set('min_vol', String(params.min_vol));
+  if (params.all) qs.set('all', 'true');
   const res = await fetch(`${API_BASE}/recommendations?${qs.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch recommendations');
   return res.json();
