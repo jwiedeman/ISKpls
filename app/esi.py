@@ -1,8 +1,10 @@
 import time
 import logging
+import asyncio
 import requests
 
 from .config import DATASOURCE
+from .status import STATUS, emit
 
 BASE = "https://esi.evetech.net/latest"
 HEADERS = {"Accept": "application/json"}
@@ -14,6 +16,21 @@ ERROR_LIMIT_REMAIN = 100
 ERROR_LIMIT_RESET = 0
 
 
+def _emit(evt: dict) -> None:
+    """Best-effort event emitter for status updates.
+
+    ``esi`` runs in both synchronous and asynchronous contexts. When no
+    event loop is running (e.g. during unit tests) the notification is
+    simply dropped. This mirrors the helper used by ``jobs``.
+    """
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    loop.create_task(emit(evt))
+
+
 def get(url, params=None, etag=None, token=None):
     headers = dict(HEADERS)
     if etag:
@@ -23,11 +40,15 @@ def get(url, params=None, etag=None, token=None):
     logger.info("GET %s params=%s", url, params)
     r = requests.get(url, params=params, headers=headers, timeout=30)
     global ERROR_LIMIT_REMAIN, ERROR_LIMIT_RESET
-    ERROR_LIMIT_REMAIN = int(r.headers.get("X-ESI-Error-Limit-Remain", ERROR_LIMIT_REMAIN))
-    ERROR_LIMIT_RESET = int(r.headers.get("X-ESI-Error-Limit-Reset", ERROR_LIMIT_RESET))
-    logger.info(
-        "response %s %s", r.status_code, r.headers.get("X-Pages")
+    ERROR_LIMIT_REMAIN = int(
+        r.headers.get("X-ESI-Error-Limit-Remain", ERROR_LIMIT_REMAIN)
     )
+    ERROR_LIMIT_RESET = int(
+        r.headers.get("X-ESI-Error-Limit-Reset", ERROR_LIMIT_RESET)
+    )
+    STATUS["esi"] = {"remain": ERROR_LIMIT_REMAIN, "reset": ERROR_LIMIT_RESET}
+    _emit({"type": "esi", "remain": ERROR_LIMIT_REMAIN, "reset": ERROR_LIMIT_RESET})
+    logger.info("response %s %s", r.status_code, r.headers.get("X-Pages"))
     if r.status_code == 304:
         return None, r.headers, 304
     if r.status_code >= 400:
