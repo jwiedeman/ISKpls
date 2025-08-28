@@ -3,14 +3,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, Literal
 from .settings_service import get_settings, update_settings, FIELD_META, validate_settings
 from .recommender import build_recommendations
 from .scheduler import run_tick
 from .db import connect, init_db
 from .valuation import compute_portfolio_snapshot, refresh_type_valuations
-from .esi import get_error_limit_status
-from . import jobs
 from .auth import get_token, token_status
 from .scheduler_config import get_scheduler_settings, update_scheduler_settings
 from .type_cache import get_type_name, refresh_type_name_cache, ensure_type_names
@@ -18,6 +16,7 @@ from .snipes import find_snipes
 from .config import SNIPE_EPSILON, SNIPE_Z, SPREAD_BUFFER
 from .market import margin_after_fees
 from .ticks import tick
+from .status import status_router
 import json
 
 
@@ -36,6 +35,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(status_router)
+
 
 
 @app.on_event("startup")
@@ -52,37 +53,6 @@ def _startup() -> None:
 def healthz():
     """Simple liveness probe."""
     return {"status": "ok"}
-
-
-@app.get("/status")
-def status():
-    """Return scheduler queue state and recent job metrics."""
-    con = connect()
-    try:
-        rows = con.execute(
-            "SELECT name, ts_utc, ok FROM jobs_history ORDER BY ts_utc DESC LIMIT 20"
-        ).fetchall()
-        counts = {
-            "10m": con.execute(
-                "SELECT COUNT(*) FROM jobs_history WHERE ts_utc >= datetime('now','-10 minutes')"
-            ).fetchone()[0],
-            "1h": con.execute(
-                "SELECT COUNT(*) FROM jobs_history WHERE ts_utc >= datetime('now','-60 minutes')"
-            ).fetchone()[0],
-            "24h": con.execute(
-                "SELECT COUNT(*) FROM jobs_history WHERE ts_utc >= datetime('now','-1440 minutes')"
-            ).fetchone()[0],
-        }
-    finally:
-        con.close()
-    return {
-        "jobs": [{"name": n, "ts_utc": t, "ok": bool(o)} for n, t, o in rows],
-        "queue": list(jobs.JOB_QUEUE),
-        "queue_depth": jobs.queue_depth(),
-        "in_flight": jobs.IN_FLIGHT,
-        "counts": counts,
-        "esi": get_error_limit_status(),
-    }
 
 
 @app.get("/auth/status")
@@ -296,7 +266,12 @@ def list_recommendations(
 
     con = connect()
     try:
-        rows = con.execute(
+        cur = con.cursor()
+        total = cur.execute(
+            f"SELECT COUNT(*) FROM recommendations{join} WHERE {' AND '.join(where)}",
+            params,
+        ).fetchone()[0]
+        rows = cur.execute(
             f"""
             SELECT recommendations.type_id, types.name, station_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json
             FROM recommendations{join}
@@ -329,7 +304,7 @@ def list_recommendations(
                 "details": details,
             }
         )
-    return {"results": results}
+    return {"rows": results, "total": total}
 
 
 @app.get("/orders/open")
@@ -564,6 +539,44 @@ def list_inventory(
             }
         )
     return {"items": items}
+
+
+@app.get("/portfolio/summary")
+def portfolio_summary(basis: Literal["mark", "quicksell"] = "mark"):
+    """Return aggregate portfolio metrics and recent realized PnL."""
+    con = connect()
+    try:
+        snap = compute_portfolio_snapshot(con)
+        cur = con.cursor()
+        realized_7d = (
+            cur.execute(
+                "SELECT COALESCE(SUM(pnl),0) FROM realized_trades WHERE ts_utc >= datetime('now','-7 days')"
+            ).fetchone()[0]
+            or 0.0
+        )
+        realized_30d = (
+            cur.execute(
+                "SELECT COALESCE(SUM(pnl),0) FROM realized_trades WHERE ts_utc >= datetime('now','-30 days')"
+            ).fetchone()[0]
+            or 0.0
+        )
+    finally:
+        con.close()
+
+    sell_value_quicksell = snap["nav_quicksell"] - snap["wallet_balance"] - snap["buy_escrow"]
+    sell_value_mark = snap["nav_mark"] - snap["wallet_balance"] - snap["buy_escrow"]
+
+    return {
+        "liquid": snap["wallet_balance"],
+        "buy_escrow": snap["buy_escrow"],
+        "sell_value_quicksell": sell_value_quicksell,
+        "sell_value_mark": sell_value_mark,
+        "nav_quicksell": snap["nav_quicksell"],
+        "nav_mark": snap["nav_mark"],
+        "realized_7d": realized_7d,
+        "realized_30d": realized_30d,
+        "basis": basis,
+    }
 
 
 @app.get("/portfolio/nav")

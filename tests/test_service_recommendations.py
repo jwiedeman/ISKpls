@@ -62,8 +62,9 @@ def test_list_recommendations_filters(tmp_path, monkeypatch):
     assert resp.status_code == 200
     data = resp.json()
     # Only one record meets the net filter
-    assert len(data["results"]) == 1
-    rec = data["results"][0]
+    assert len(data["rows"]) == 1
+    assert data["total"] == 1
+    rec = data["rows"][0]
     assert rec["type_id"] == 1
     assert rec["type_name"] == "Foo"
     assert rec["station_id"] == STATION_ID
@@ -74,22 +75,23 @@ def test_list_recommendations_filters(tmp_path, monkeypatch):
     # Filter by MoM uplift should exclude both when threshold high
     resp = client.get("/recommendations", params={"min_mom": 0.35})
     assert resp.status_code == 200
-    assert resp.json()["results"] == []
+    assert resp.json()["rows"] == []
 
     # Filter by minimum volume using type_trends
     resp = client.get("/recommendations", params={"min_vol": 400})
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data["results"]) == 1
-    assert data["results"][0]["type_id"] == 1
+    assert len(data["rows"]) == 1
+    assert data["total"] == 1
+    assert data["rows"][0]["type_id"] == 1
 
     # Filter by category and meta level
     resp = client.get("/recommendations", params={"category": 6})
     assert resp.status_code == 200
-    assert len(resp.json()["results"]) == 1
+    assert len(resp.json()["rows"]) == 1
     resp = client.get("/recommendations", params={"meta": 1})
     assert resp.status_code == 200
-    assert len(resp.json()["results"]) == 1
+    assert len(resp.json()["rows"]) == 1
 
 
 def test_recommendations_sort_and_offset(tmp_path, monkeypatch):
@@ -109,7 +111,7 @@ def test_recommendations_sort_and_offset(tmp_path, monkeypatch):
     # Sort ascending by net_pct should put type 2 first
     resp = client.get("/recommendations", params={"sort": "net_pct", "dir": "asc"})
     assert resp.status_code == 200
-    data = resp.json()["results"]
+    data = resp.json()["rows"]
     assert data[0]["type_id"] == 2
 
     # Offset should skip the first record when ordered by ts_utc desc
@@ -118,9 +120,9 @@ def test_recommendations_sort_and_offset(tmp_path, monkeypatch):
         params={"limit": 1, "offset": 1, "sort": "ts_utc", "dir": "desc"},
     )
     assert resp.status_code == 200
-    data = resp.json()["results"]
-    assert len(data) == 1
-    assert data[0]["type_id"] == 1
+    data = resp.json()
+    assert len(data["rows"]) == 1
+    assert data["rows"][0]["type_id"] == 1
 
 
 def test_recommendations_search(tmp_path, monkeypatch):
@@ -138,13 +140,13 @@ def test_recommendations_search(tmp_path, monkeypatch):
     client = TestClient(service.app)
     resp = client.get("/recommendations", params={"search": "Foo"})
     assert resp.status_code == 200
-    data = resp.json()["results"]
+    data = resp.json()["rows"]
     assert len(data) == 1
     assert data[0]["type_id"] == 1
 
     resp = client.get("/recommendations", params={"search": "2"})
     assert resp.status_code == 200
-    data = resp.json()["results"]
+    data = resp.json()["rows"]
     assert len(data) == 1
     assert data[0]["type_id"] == 2
 
