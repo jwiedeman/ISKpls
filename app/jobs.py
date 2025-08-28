@@ -1,8 +1,12 @@
 from __future__ import annotations
 from datetime import datetime
 import json
-from typing import Any, Optional
+from typing import Any, Optional, List, Dict
 from . import db
+
+# Simple in-process queue state for scheduler visibility
+JOB_QUEUE: List[str] = []
+IN_FLIGHT: Optional[Dict[str, str]] = None
 
 
 def record_job(name: str, ok: bool, details: Optional[Any] = None) -> None:

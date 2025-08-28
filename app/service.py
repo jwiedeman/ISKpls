@@ -10,6 +10,7 @@ from .scheduler import run_tick
 from .db import connect, init_db
 from .valuation import compute_portfolio_snapshot, refresh_type_valuations
 from .esi import get_error_limit_status
+from . import jobs
 from .auth import get_token, token_status
 from .scheduler_config import get_scheduler_settings, update_scheduler_settings
 from .type_cache import get_type_name, refresh_type_name_cache, ensure_type_names
@@ -55,16 +56,30 @@ def healthz():
 
 @app.get("/status")
 def status():
-    """Return recent job history for health checks."""
+    """Return scheduler queue state and recent job metrics."""
     con = connect()
     try:
         rows = con.execute(
             "SELECT name, ts_utc, ok FROM jobs_history ORDER BY ts_utc DESC LIMIT 20"
         ).fetchall()
+        counts = {
+            "10m": con.execute(
+                "SELECT COUNT(*) FROM jobs_history WHERE ts_utc >= datetime('now','-10 minutes')"
+            ).fetchone()[0],
+            "1h": con.execute(
+                "SELECT COUNT(*) FROM jobs_history WHERE ts_utc >= datetime('now','-60 minutes')"
+            ).fetchone()[0],
+            "24h": con.execute(
+                "SELECT COUNT(*) FROM jobs_history WHERE ts_utc >= datetime('now','-1440 minutes')"
+            ).fetchone()[0],
+        }
     finally:
         con.close()
     return {
         "jobs": [{"name": n, "ts_utc": t, "ok": bool(o)} for n, t, o in rows],
+        "queue": list(jobs.JOB_QUEUE),
+        "in_flight": jobs.IN_FLIGHT,
+        "counts": counts,
         "esi": get_error_limit_status(),
     }
 
