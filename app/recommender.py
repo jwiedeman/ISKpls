@@ -10,10 +10,14 @@ from .config import (
 )
 from .jobs import record_job
 from .emit import build_started, build_progress, build_finished
+from typing import Literal
 
 
 def build_recommendations(
-    limit: int = 50, verbose: bool = False, dry_run: bool = False
+    limit: int = 50,
+    verbose: bool = False,
+    dry_run: bool = False,
+    mode: Literal["profit_only", "legacy"] = "profit_only",
 ):
     """Populate the recommendations table with top candidates.
 
@@ -57,20 +61,38 @@ def build_recommendations(
         )
 
         # volume and MoM gates ---------------------------------------------
-        vol_pass = candidates  # initial query already enforces volume
-        build_progress(
-            bid,
-            45,
-            "volume",
-            f"min_daily_vol={MIN_DAILY_VOL} pass={vol_pass} drop=0",
-        )
-        mom_pass = sum(1 for _, m in rows if m is not None and m >= MOM_THRESHOLD)
-        build_progress(
-            bid,
-            60,
-            "mom",
-            f"min_mom={MOM_THRESHOLD} pass={mom_pass} drop={candidates - mom_pass}",
-        )
+        if mode == "legacy":
+            rows = [r for r in rows if r[0] in fresh_ids]
+            vol_pass = len(rows)
+            build_progress(
+                bid,
+                45,
+                "volume",
+                f"min_daily_vol={MIN_DAILY_VOL} pass={vol_pass} drop={candidates - vol_pass}",
+            )
+            rows = [r for r in rows if r[1] is not None and r[1] >= MOM_THRESHOLD]
+            mom_pass = len(rows)
+            build_progress(
+                bid,
+                60,
+                "mom",
+                f"min_mom={MOM_THRESHOLD} pass={mom_pass} drop={vol_pass - mom_pass}",
+            )
+        else:
+            vol_pass = candidates  # initial query already enforces volume
+            build_progress(
+                bid,
+                45,
+                "volume",
+                f"min_daily_vol={MIN_DAILY_VOL} pass={vol_pass} drop=0",
+            )
+            mom_pass = sum(1 for _, m in rows if m is not None and m >= MOM_THRESHOLD)
+            build_progress(
+                bid,
+                60,
+                "mom",
+                f"min_mom={MOM_THRESHOLD} pass={mom_pass} drop={candidates - mom_pass}",
+            )
 
         results = []
         for i, (type_id, _) in enumerate(rows, start=1):
@@ -101,7 +123,8 @@ def build_recommendations(
                     ),
                 )
             if verbose and mom_pass:
-                pct = 60 + int(i / mom_pass * 30)
+                denom = mom_pass if mode == "legacy" else len(rows) or 1
+                pct = 60 + int(i / denom * 30)
                 build_progress(bid, pct, "score", f"scored={i}")
 
         scored = len(results)

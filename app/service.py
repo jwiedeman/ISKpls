@@ -12,6 +12,7 @@ from .settings_service import (
     validate_settings,
 )
 from .recommender import build_recommendations
+from typing import Literal
 from .scheduler import run_tick
 from .db import connect, init_db
 from .valuation import compute_portfolio_snapshot, refresh_type_valuations
@@ -975,16 +976,24 @@ def recompute_valuations():
 
 
 @app.post("/recommendations/build")
-def recommendations_build(dry_run: bool = False, verbose: bool = False):
+def recommendations_build(
+    dry_run: bool = False,
+    verbose: bool = False,
+    mode: Literal["profit_only", "legacy"] = "profit_only",
+):
     """Trigger a recommendations build or return dry-run counts."""
-    res = build_recommendations(verbose=verbose, dry_run=dry_run)
+    res = build_recommendations(verbose=verbose, dry_run=dry_run, mode=mode)
     if dry_run:
         return res
     return {"rows": len(res)}
 
 
 @app.post("/jobs/{name}/run")
-def run_job(name: str, verbose: bool = False):
+def run_job(
+    name: str,
+    verbose: bool = False,
+    mode: Literal["profit_only", "legacy"] = "profit_only",
+):
     """Run a background job immediately.
 
     The optional ``verbose`` flag triggers additional event chatter so that
@@ -992,7 +1001,7 @@ def run_job(name: str, verbose: bool = False):
     """
 
     if name == "recommendations":
-        recs = build_recommendations(verbose=verbose)
+        recs = build_recommendations(verbose=verbose, mode=mode)
         return {"count": len(recs)}
     if name == "scheduler_tick":
         run_tick()
