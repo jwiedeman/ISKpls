@@ -85,6 +85,7 @@ The service provides endpoints such as:
 - `GET /auth/status` – check whether SSO token is cached
 - `POST /auth/connect` – initiate the EVE SSO flow
 - `GET /snipes` – detect underpriced sell orders (supports `limit`, `epsilon`, `min_net`, `z`)
+- `GET /orders/reprice` – tick-aware buy/sell price guidance for a type
 - Most responses include `type_name` alongside `type_id`
 
 ### Frontend UI
