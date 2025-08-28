@@ -4,7 +4,7 @@ import requests
 
 from .config import DATASOURCE
 from .status import STATUS
-from .emit import emit_sync
+from .emit import esi_status
 
 BASE = "https://esi.evetech.net/latest"
 HEADERS = {"Accept": "application/json"}
@@ -32,7 +32,7 @@ def get(url, params=None, etag=None, token=None):
         r.headers.get("X-ESI-Error-Limit-Reset", ERROR_LIMIT_RESET)
     )
     STATUS["esi"] = {"remain": ERROR_LIMIT_REMAIN, "reset": ERROR_LIMIT_RESET}
-    emit_sync({"type": "esi", "remain": ERROR_LIMIT_REMAIN, "reset": ERROR_LIMIT_RESET})
+    esi_status(ERROR_LIMIT_REMAIN, ERROR_LIMIT_RESET)
     logger.info("response %s %s", r.status_code, r.headers.get("X-Pages"))
     if r.status_code == 304:
         return None, r.headers, 304

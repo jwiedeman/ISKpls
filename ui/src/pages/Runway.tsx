@@ -49,7 +49,8 @@ function useRunwayVM(events: RunwayEvent[]) {
 
 export default function Runway() {
   const { connected, events } = useEventStream();
-  const { inflightList, recentBuilds, esi, queue, logs } = useRunwayVM(events);
+  const { inflightList, recentJobs, recentBuilds, esi, queue, logs } =
+    useRunwayVM(events);
   const dotStyle: React.CSSProperties = {
     width: 10,
     height: 10,
@@ -94,13 +95,21 @@ export default function Runway() {
           </span>
         ))}
       </div>
+      <h3>Recent Jobs</h3>
+      <ul>
+        {recentJobs.map((j) => (
+          <li key={j.runId} title={j.detail}>
+            <strong>{j.job}</strong> {j.ok ? "ok" : "fail"} {j.ms}ms {trunc(j.detail ?? "")}
+          </li>
+        ))}
+      </ul>
       <h3>Recent Builds</h3>
       <ul>
-          {recentBuilds.map((b) => (
-            <li key={b.buildId} title={b.detail}>
-              <strong>{b.job}</strong> {b.progress}% {b.stage} {trunc(b.detail ?? "")}
-            </li>
-          ))}
+        {recentBuilds.map((b) => (
+          <li key={b.buildId} title={b.detail}>
+            <strong>{b.job}</strong> {b.progress}% {b.stage} {trunc(b.detail ?? "")}
+          </li>
+        ))}
       </ul>
       <h3>Logs</h3>
       <ul>
