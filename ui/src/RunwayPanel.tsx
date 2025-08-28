@@ -47,6 +47,19 @@ export default function RunwayPanel({ connected, events }: Props) {
               <> {j.done}/{j.total ?? j.meta?.total}</>
             ) : null}{" "}
             {trunc(j.detail ?? "")}
+            {j.workers != null || j.selected != null || j.tiers ? (
+              <>
+                {j.workers != null && <> · workers:{j.workers}</>}
+                {j.selected != null && <> · selected:{j.selected}</>}
+                {j.tiers && (
+                  <> · tiers:{
+                    Object.entries(j.tiers).map(
+                      ([k, v]) => `${k}:${v}`
+                    ).join(',')
+                  }</>
+                )}
+              </>
+            ) : null}
           </li>
         ))}
         {buildInflight.map((b) => (
@@ -84,7 +97,12 @@ export default function RunwayPanel({ connected, events }: Props) {
       <ul>
         {recentJobs.map((j) => (
           <li key={j.runId} title={j.detail}>
-            <strong>{j.job}</strong> {j.ok ? "ok" : "fail"} {j.ms}ms {trunc(j.detail ?? "")}
+            <strong>{j.job}</strong> {j.ok ? "ok" : "fail"} {j.ms}ms
+            {typeof j.items_written === 'number' && <> · wrote {j.items_written}</>}
+            {typeof j.median_snapshot_age_ms === 'number' && (
+              <> · age {j.median_snapshot_age_ms}ms</>
+            )}{' '}
+            {trunc(j.detail ?? '')}
           </li>
         ))}
       </ul>

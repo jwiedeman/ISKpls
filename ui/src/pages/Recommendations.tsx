@@ -64,7 +64,6 @@ export default function Recommendations() {
         min_profit_pct: minProfit,
         min_mom: minMom,
         show_all: showAll,
-        mode: 'profit_only',
       };
       const data = await getRecommendations(params);
       setRows(data.rows || []);
@@ -222,6 +221,9 @@ export default function Recommendations() {
   return (
     <div>
       <h2>Recommendations</h2>
+      <p>
+        Mode: Profit-only · Min Profit: {minProfit}% · Show All: {showAll ? 'On' : 'Off'}
+      </p>
       <ErrorBanner message={error} />
       {loading && <Spinner />}
       <div>
