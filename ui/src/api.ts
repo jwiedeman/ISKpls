@@ -24,12 +24,13 @@ export async function getStatus(): Promise<StatusSnapshot> {
 
 export interface Coverage {
   types_indexed: number;
-  books_last_10m: number;
-  median_snapshot_age_ms: number;
+  books_10m: number;
+  median_age_s: number;
+  distinct_types_24h: number;
 }
 
 export async function getCoverage(): Promise<Coverage> {
-  const res = await fetch(`${API_BASE}/inventory/coverage`);
+  const res = await fetch(`${API_BASE}/coverage`);
   if (!res.ok) throw new Error('Failed to fetch coverage');
   return res.json();
 }

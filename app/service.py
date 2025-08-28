@@ -686,6 +686,43 @@ def inventory_coverage():
     }
 
 
+@app.get("/coverage")
+def coverage_summary():
+    """Return high level coverage metrics for market snapshots."""
+    con = connect()
+    try:
+        cur = con.cursor()
+        types_indexed = cur.execute(
+            "SELECT COUNT(DISTINCT type_id) FROM market_snapshots"
+        ).fetchone()[0]
+        books_10m = cur.execute(
+            "SELECT COUNT(*) FROM market_snapshots WHERE ts_utc >= datetime('now','-10 minutes')"
+        ).fetchone()[0]
+        distinct_24h = cur.execute(
+            "SELECT COUNT(DISTINCT type_id) FROM market_snapshots WHERE ts_utc >= datetime('now','-1 day')"
+        ).fetchone()[0]
+        rows = cur.execute(
+            "SELECT MAX(ts_utc) FROM market_snapshots GROUP BY type_id"
+        ).fetchall()
+    finally:
+        con.close()
+
+    now = datetime.utcnow()
+    ages = [
+        int((now - datetime.fromisoformat(ts)).total_seconds() * 1000)
+        for (ts,) in rows
+        if ts
+    ]
+    median_age_s = int(median(ages) / 1000) if ages else 0
+
+    return {
+        "types_indexed": types_indexed or 0,
+        "books_10m": books_10m or 0,
+        "median_age_s": median_age_s,
+        "distinct_types_24h": distinct_24h or 0,
+    }
+
+
 @app.get("/portfolio/summary")
 def portfolio_summary(basis: Literal["mark", "quicksell"] = "mark"):
     """Return aggregate portfolio metrics and recent realized PnL."""
