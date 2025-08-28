@@ -1,3 +1,5 @@
+import os
+
 STATION_ID = 60003760  # Jita 4-4
 REGION_ID = 10000002  # The Forge region
 DATASOURCE = "tranquility"
@@ -18,3 +20,8 @@ SNIPE_EPSILON = 0.002
 SNIPE_Z = 3.0
 # Minimum percentage drop from rolling median for anomaly detection
 SNIPE_DELTA = 0.10
+
+# Maximum age of market snapshots (in milliseconds) to consider "fresh"
+# for recommendations. Can be overridden via the ``REC_FRESH_MS``
+# environment variable.
+REC_FRESH_MS = int(os.getenv("REC_FRESH_MS", 30 * 60 * 1000))

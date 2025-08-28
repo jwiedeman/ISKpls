@@ -1,5 +1,5 @@
 from __future__ import annotations
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -14,7 +14,7 @@ from .auth import get_token, token_status
 from .scheduler_config import get_scheduler_settings, update_scheduler_settings
 from .type_cache import get_type_name, refresh_type_name_cache, ensure_type_names
 from .snipes import find_snipes
-from .config import SNIPE_EPSILON, SNIPE_Z, SPREAD_BUFFER, STATION_ID
+from .config import SNIPE_EPSILON, SNIPE_Z, SPREAD_BUFFER, STATION_ID, REC_FRESH_MS
 from .market import margin_after_fees
 from .ticks import tick
 from .status import status_router, start_heartbeat, stop_heartbeat
@@ -234,11 +234,13 @@ def list_recommendations(
     category: int | None = None,
     meta: int | None = None,
     search: str | None = None,
-    all: bool = False,
+    show_all: bool = False,
+    legacy_all: bool = Query(False, alias="all", include_in_schema=False),
 ):
+    show_all = show_all or legacy_all
     """Return recent recommendations filtered by net spread and MoM uplift.
 
-    If ``all`` is true, include all trending types even if they did not
+    If ``show_all`` is true, include all trending types even if they did not
     meet the recommendation filters. For those entries, net spread and
     other recommendation fields may be ``0`` or ``null``.
     """
@@ -252,7 +254,9 @@ def list_recommendations(
     col = allowed.get(sort, "ts_utc")
     direction = "ASC" if dir.lower() == "asc" else "DESC"
 
-    if all:
+    results: list[dict[str, Any]] = []
+
+    if show_all:
         where = ["COALESCE(tr.vol_30d_avg,0) >= ?"]
         params: list[Any] = [min_vol]
         join = (
@@ -277,10 +281,6 @@ def list_recommendations(
         con = connect()
         try:
             cur = con.cursor()
-            total = cur.execute(
-                f"SELECT COUNT(*) FROM type_trends tr{join} WHERE {where_clause}",
-                params,
-            ).fetchone()[0]
             rows = cur.execute(
                 f"""
                 SELECT tr.type_id, types.name, station_id, ts_utc,
@@ -291,13 +291,11 @@ def list_recommendations(
                 FROM type_trends tr{join}
                 WHERE {where_clause}
                 ORDER BY {col} {direction}
-                LIMIT ? OFFSET ?
                 """,
-                (*params, limit, offset),
+                params,
             ).fetchall()
         finally:
             con.close()
-        results = []
         now = datetime.utcnow()
         con = connect()
         try:
@@ -332,83 +330,80 @@ def list_recommendations(
                 )
         finally:
             con.close()
-        return {"rows": results, "total": total}
+    else:
+        where = [
+            "net_pct >= ?",
+            "uplift_mom >= ?",
+            "COALESCE(tr.vol_30d_avg,0) >= ?",
+        ]
+        params = [min_net, min_mom, min_vol]
+        join = (
+            " LEFT JOIN types ON recommendations.type_id = types.type_id"
+            " LEFT JOIN type_trends tr ON tr.type_id = recommendations.type_id"
+        )
+        if category is not None:
+            where.append("types.category_id = ?")
+            params.append(category)
+        if meta is not None:
+            where.append("COALESCE(types.meta_level,0) >= ?")
+            params.append(meta)
+        if search:
+            if search.isdigit():
+                where.append("(recommendations.type_id = ? OR types.name LIKE ?)")
+                params.extend([int(search), f"%{search}%"])
+            else:
+                where.append("types.name LIKE ?")
+                params.append(f"%{search}%")
 
-    where = [
-        "net_pct >= ?",
-        "uplift_mom >= ?",
-        "COALESCE(tr.vol_30d_avg,0) >= ?",
-    ]
-    params = [min_net, min_mom, min_vol]
-    join = (
-        " LEFT JOIN types ON recommendations.type_id = types.type_id"
-        " LEFT JOIN type_trends tr ON tr.type_id = recommendations.type_id"
-    )
-    if category is not None:
-        where.append("types.category_id = ?")
-        params.append(category)
-    if meta is not None:
-        where.append("COALESCE(types.meta_level,0) >= ?")
-        params.append(meta)
-    if search:
-        if search.isdigit():
-            where.append("(recommendations.type_id = ? OR types.name LIKE ?)")
-            params.extend([int(search), f"%{search}%"])
-        else:
-            where.append("types.name LIKE ?")
-            params.append(f"%{search}%")
+        con = connect()
+        try:
+            cur = con.cursor()
+            rows = cur.execute(
+                f"""
+                SELECT recommendations.type_id, types.name, station_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json
+                FROM recommendations{join}
+                WHERE {' AND '.join(where)}
+                ORDER BY {col} {direction}
+                """,
+                params,
+            ).fetchall()
 
-    con = connect()
-    try:
-        cur = con.cursor()
-        total = cur.execute(
-            f"SELECT COUNT(*) FROM recommendations{join} WHERE {' AND '.join(where)}",
-            params,
-        ).fetchone()[0]
-        rows = cur.execute(
-            f"""
-            SELECT recommendations.type_id, types.name, station_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json
-            FROM recommendations{join}
-            WHERE {' AND '.join(where)}
-            ORDER BY {col} {direction}
-            LIMIT ? OFFSET ?
-            """,
-            (*params, limit, offset),
-        ).fetchall()
+            now = datetime.utcnow()
+            for type_id, type_name, station_id, ts, net, mom, cap, rationale in rows:
+                try:
+                    details = json.loads(rationale) if rationale else {}
+                except json.JSONDecodeError:
+                    details = {}
+                last_snap = cur.execute(
+                    "SELECT MAX(ts_utc) FROM market_snapshots WHERE type_id=?",
+                    (type_id,),
+                ).fetchone()[0]
+                age_ms = None
+                if last_snap:
+                    age_ms = int((now - datetime.fromisoformat(last_snap)).total_seconds() * 1000)
+                results.append(
+                    {
+                        "type_id": type_id,
+                        "type_name": type_name or get_type_name(type_id),
+                        "station_id": station_id,
+                        "ts_utc": ts,
+                        "net_pct": net,
+                        "uplift_mom": mom,
+                        "daily_capacity": cap,
+                        "best_bid": details.get("best_bid"),
+                        "best_ask": details.get("best_ask"),
+                        "daily_volume": details.get("daily_volume"),
+                        "snapshot_age_ms": age_ms,
+                        "details": details,
+                    }
+                )
+        finally:
+            con.close()
 
-        results = []
-        now = datetime.utcnow()
-        for type_id, type_name, station_id, ts, net, mom, cap, rationale in rows:
-            try:
-                details = json.loads(rationale) if rationale else {}
-            except json.JSONDecodeError:
-                details = {}
-            last_snap = cur.execute(
-                "SELECT MAX(ts_utc) FROM market_snapshots WHERE type_id=?",
-                (type_id,),
-            ).fetchone()[0]
-            age_ms = None
-            if last_snap:
-                age_ms = int((now - datetime.fromisoformat(last_snap)).total_seconds() * 1000)
-            results.append(
-                {
-                    "type_id": type_id,
-                    "type_name": type_name or get_type_name(type_id),
-                    "station_id": station_id,
-                    "ts_utc": ts,
-                    "net_pct": net,
-                    "uplift_mom": mom,
-                    "daily_capacity": cap,
-                    "best_bid": details.get("best_bid"),
-                    "best_ask": details.get("best_ask"),
-                    "daily_volume": details.get("daily_volume"),
-                    "snapshot_age_ms": age_ms,
-                    "details": details,
-                }
-            )
-    finally:
-        con.close()
-    return {"rows": results, "total": total}
+    fresh = [r for r in results if r["snapshot_age_ms"] is None or r["snapshot_age_ms"] <= REC_FRESH_MS]
+    total = len(fresh)
+    sliced = fresh[offset : offset + limit]
+    return {"rows": sliced, "total": total}
 
 
 @app.get("/orders/open")
