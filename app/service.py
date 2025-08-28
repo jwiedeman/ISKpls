@@ -78,6 +78,7 @@ def status():
     return {
         "jobs": [{"name": n, "ts_utc": t, "ok": bool(o)} for n, t, o in rows],
         "queue": list(jobs.JOB_QUEUE),
+        "queue_depth": jobs.queue_depth(),
         "in_flight": jobs.IN_FLIGHT,
         "counts": counts,
         "esi": get_error_limit_status(),
