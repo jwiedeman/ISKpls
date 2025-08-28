@@ -18,7 +18,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from . import db, esi
 from .status import STATUS
-from .emit import emit_sync, job_started, job_finished
+from .emit import job_started, job_finished, queue_event
 
 # Public state for status reporting -------------------------------------------------
 
@@ -48,7 +48,7 @@ def _refresh_snapshot() -> None:
     JOB_QUEUE[:] = [job.name for _, _, job in sorted(_queue)]
     depth = queue_depth()
     STATUS["queue"] = depth
-    emit_sync({"type": "queue", "depth": depth})
+    queue_event(depth)
 
 
 def enqueue(name: str, func: Callable[..., Any], priority: str = "P2", *args, **kwargs) -> None:

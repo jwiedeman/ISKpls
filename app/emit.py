@@ -88,6 +88,19 @@ def build_progress(buildId: str, progress: int, stage: str = "", detail: str = "
     )
 
 
+# Resource / status events -----------------------------------------------------------
+
+
+def esi_status(remain: int, reset: int) -> None:
+    """Emit an event capturing current ESI error limit headers."""
+    emit_sync({"type": "esi", "remain": remain, "reset": reset})
+
+
+def queue_event(depth: dict[str, int]) -> None:
+    """Emit queue depth information by priority class."""
+    emit_sync({"type": "queue", "depth": depth})
+
+
 def build_finished(buildId: str, ok: bool, rows: int = 0, ms: int = 0, error: str | None = None) -> None:
     emit_sync(
         {
