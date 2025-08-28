@@ -176,19 +176,28 @@ export default function Recommendations() {
           ))}
         </thead>
         <tbody>
-          {table.getRowModel().rows.map(row => (
-            <tr key={row.original.type_id}>
-              <td>
-                <button onClick={() => toggleWatchlist(row.original.type_id)} disabled={loading}>
-                  {watchlist.has(row.original.type_id) ? '★' : '☆'}
-                </button>
+          {table.getRowModel().rows.length === 0 && !loading ? (
+            <tr>
+              <td colSpan={columns.length + 2} style={{ textAlign: 'center' }}>
+                No recommendations found. Try adjusting filters or run the
+                build job.
               </td>
-              {row.getVisibleCells().map(cell => (
-                <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
-              ))}
-              <td><button onClick={() => setSelected(row.original)}>Explain</button></td>
             </tr>
-          ))}
+          ) : (
+            table.getRowModel().rows.map(row => (
+              <tr key={row.original.type_id}>
+                <td>
+                  <button onClick={() => toggleWatchlist(row.original.type_id)} disabled={loading}>
+                    {watchlist.has(row.original.type_id) ? '★' : '☆'}
+                  </button>
+                </td>
+                {row.getVisibleCells().map(cell => (
+                  <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+                ))}
+                <td><button onClick={() => setSelected(row.original)}>Explain</button></td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
       <div style={{ marginTop: '1em' }}>
