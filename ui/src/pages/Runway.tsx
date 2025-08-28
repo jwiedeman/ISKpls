@@ -1,4 +1,3 @@
-import React from "react";
 import { useEventStream } from "../useEventStream";
 import RunwayPanel from "../RunwayPanel";
 

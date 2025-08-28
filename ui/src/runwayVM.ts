@@ -1,10 +1,4 @@
-import type { RunwayEvent } from "./useEventStream";
-
-export interface PendingJob {
-  job: string;
-  runId: string;
-  queued_at: string;
-}
+import type { RunwayEvent, PendingJob } from "./useEventStream";
 
 export function useRunwayVM(events: RunwayEvent[]) {
   const inflight: Record<string, RunwayEvent> = {};
