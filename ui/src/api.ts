@@ -1,10 +1,11 @@
 export const API_BASE = 'http://localhost:8000';
 
 export interface StatusSnapshot {
-  inflight: unknown[];
-  last_runs: { job: string; ok: boolean; ts?: string; ms?: number }[];
-  counts: Record<string, number>;
+  inflight?: unknown[];
+  last_runs?: { job: string; ok: boolean; ts?: string; ms?: number }[];
+  counts?: Record<string, number>;
   esi: { remain?: number; reset?: number };
+  queue?: Record<string, number>;
 }
 
 export async function getStatus(): Promise<StatusSnapshot> {
@@ -13,7 +14,13 @@ export async function getStatus(): Promise<StatusSnapshot> {
   return res.json();
 }
 
-export async function getCoverage() {
+export interface Coverage {
+  types_indexed: number;
+  books_last_10m: number;
+  median_snapshot_age_ms: number;
+}
+
+export async function getCoverage(): Promise<Coverage> {
   const res = await fetch(`${API_BASE}/inventory/coverage`);
   if (!res.ok) throw new Error('Failed to fetch coverage');
   return res.json();

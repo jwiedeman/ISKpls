@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { API_BASE, getStatus, runJob, type StatusSnapshot, getWatchlist, getCoverage } from '../api';
+import { API_BASE, getStatus, runJob, type StatusSnapshot, getWatchlist, getCoverage, type Coverage } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 import TypeName from '../TypeName';
@@ -11,14 +11,21 @@ interface JobRec {
   ms?: number;
 }
 
+interface InflightJob {
+  id: number;
+  job: string;
+  detail?: string;
+  progress: number;
+}
+
 export default function Dashboard() {
   const [jobs, setJobs] = useState<JobRec[]>([]);
   const [esi, setEsi] = useState<StatusSnapshot['esi'] | null>(null);
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [watchlist, setWatchlist] = useState<number[]>([]);
-  const [coverage, setCoverage] = useState<any>(null);
-  const [inflight, setInflight] = useState<any[]>([]);
+  const [coverage, setCoverage] = useState<Coverage | null>(null);
+  const [inflight, setInflight] = useState<InflightJob[]>([]);
   const [queue, setQueue] = useState<Record<string, number>>({});
 
   async function refresh() {
@@ -27,7 +34,7 @@ export default function Dashboard() {
       const data = await getStatus();
       setJobs(data.last_runs || []);
       setEsi(data.esi);
-      setInflight(data.inflight || []);
+      setInflight((data.inflight as InflightJob[]) || []);
       setQueue(data.queue || {});
       const wl = await getWatchlist();
       const ids: number[] = (wl.items || []).map((i: { type_id: number }) => i.type_id);
