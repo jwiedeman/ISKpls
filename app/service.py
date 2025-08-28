@@ -186,19 +186,34 @@ def list_snipes(limit: int = 20, epsilon: float = SNIPE_EPSILON):
 
 
 @app.get("/recommendations")
-def list_recommendations(limit: int = 50, min_net: float = 0.0, min_mom: float = 0.0):
+def list_recommendations(
+    limit: int = 50,
+    offset: int = 0,
+    sort: str = "ts_utc",
+    dir: str = "desc",
+    min_net: float = 0.0,
+    min_mom: float = 0.0,
+):
     """Return recent recommendations filtered by net spread and MoM uplift."""
+    allowed = {
+        "ts_utc": "ts_utc",
+        "net_pct": "net_pct",
+        "uplift_mom": "uplift_mom",
+        "daily_capacity": "daily_capacity",
+    }
+    col = allowed.get(sort, "ts_utc")
+    direction = "ASC" if dir.lower() == "asc" else "DESC"
     con = connect()
     try:
         rows = con.execute(
-            """
+            f"""
             SELECT type_id, ts_utc, net_pct, uplift_mom, daily_capacity, rationale_json
             FROM recommendations
             WHERE net_pct >= ? AND uplift_mom >= ?
-            ORDER BY ts_utc DESC
-            LIMIT ?
+            ORDER BY {col} {direction}
+            LIMIT ? OFFSET ?
             """,
-            (min_net, min_mom, limit),
+            (min_net, min_mom, limit, offset),
         ).fetchall()
     finally:
         con.close()
@@ -226,19 +241,24 @@ def list_recommendations(limit: int = 50, min_net: float = 0.0, min_mom: float =
 
 
 @app.get("/orders/open")
-def list_open_orders(limit: int = 100):
+def list_open_orders(
+    limit: int = 100, offset: int = 0, sort: str = "issued", dir: str = "desc"
+):
     """Return open character orders with fill percentage."""
+    allowed = {"issued": "issued", "price": "price", "type_id": "type_id"}
+    col = allowed.get(sort, "issued")
+    direction = "ASC" if dir.lower() == "asc" else "DESC"
     con = connect()
     try:
         rows = con.execute(
-            """
+            f"""
             SELECT order_id, is_buy, type_id, price, volume_total, volume_remain, issued, escrow
             FROM char_orders
             WHERE state='open'
-            ORDER BY issued DESC
-            LIMIT ?
+            ORDER BY {col} {direction}
+            LIMIT ? OFFSET ?
             """,
-            (limit,),
+            (limit, offset),
         ).fetchall()
     finally:
         con.close()
@@ -272,19 +292,24 @@ def list_open_orders(limit: int = 100):
 
 
 @app.get("/orders/history")
-def list_order_history(limit: int = 100):
+def list_order_history(
+    limit: int = 100, offset: int = 0, sort: str = "issued", dir: str = "desc"
+):
     """Return recently closed character orders with fill percentage and state."""
+    allowed = {"issued": "issued", "price": "price", "type_id": "type_id"}
+    col = allowed.get(sort, "issued")
+    direction = "ASC" if dir.lower() == "asc" else "DESC"
     con = connect()
     try:
         rows = con.execute(
-            """
+            f"""
             SELECT order_id, is_buy, type_id, price, volume_total, volume_remain, issued, state, escrow
             FROM char_orders
             WHERE state != 'open'
-            ORDER BY issued DESC
-            LIMIT ?
+            ORDER BY {col} {direction}
+            LIMIT ? OFFSET ?
             """,
-            (limit,),
+            (limit, offset),
         ).fetchall()
     finally:
         con.close()
