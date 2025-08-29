@@ -10,6 +10,7 @@ import {
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 import TypeName from '../TypeName';
+import StalenessBadge from '../StalenessBadge';
 import {
   type ColumnDef,
   type SortingState,
@@ -180,12 +181,8 @@ export default function Recommendations() {
     },
     {
       accessorKey: 'fresh_ms',
-      header: 'Fresh',
-      cell: (info) => {
-        const age = info.getValue<number>() ?? 0;
-        const color = age < 120000 ? 'green' : age < 600000 ? 'yellow' : 'red';
-        return <span style={{ color }}>●</span>;
-      },
+      header: 'Staleness',
+      cell: (info) => <StalenessBadge ms={info.getValue<number>() ?? 0} />,
     },
     { accessorKey: 'last_updated', header: 'Updated' },
     {
