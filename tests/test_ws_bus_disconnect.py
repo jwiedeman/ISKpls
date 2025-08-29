@@ -33,4 +33,5 @@ def test_broadcast_prunes_dead_clients(caplog):
     assert bad not in ws_bus._clients
     assert good.sent[0] == json.dumps({"type": "test"})
     assert any("WebSocket send failed" in r.message for r in caplog.records)
+    assert any("WebSocket pruned" in r.message for r in caplog.records)
     ws_bus._clients.clear()

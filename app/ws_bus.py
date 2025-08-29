@@ -18,15 +18,28 @@ async def broadcast(evt: dict) -> None:
     _history.append(evt)
     if len(_history) > HISTORY_MAX:
         _history.pop(0)
-    dead = []
+
+    msg = json.dumps(evt)
+    dead: list[WebSocket] = []
     for ws in list(_clients):
         try:
-            await ws.send_text(json.dumps(evt))
+            await ws.send_text(msg)
         except Exception as exc:
             logging.info("WebSocket send failed: %s", exc)
+            close = getattr(ws, "close", None)
+            if close:
+                try:
+                    if asyncio.iscoroutinefunction(close):
+                        await close()
+                    else:
+                        close()
+                except Exception:
+                    logging.info("WebSocket close failed", exc_info=True)
             dead.append(ws)
+
     for ws in dead:
         _clients.discard(ws)
+        logging.info("WebSocket pruned: %s", getattr(ws, "client", ws))
 
 
 @router.websocket("/ws")
