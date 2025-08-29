@@ -6,6 +6,11 @@ def utcnow() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
+def utcnow_dt() -> datetime:
+    """Return the current timezone-aware UTC ``datetime``."""
+    return datetime.now(timezone.utc)
+
+
 def parse_utc(ts: str) -> datetime:
     """Parse a timestamp into a UTC-aware ``datetime``."""
     dt = datetime.fromisoformat(ts)

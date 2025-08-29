@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 import sys
 from pathlib import Path
 
@@ -8,6 +8,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app import service, db
 from app.config import STATION_ID
+from app.util import utcnow_dt
 
 
 def test_coverage_endpoint(tmp_path, monkeypatch):
@@ -15,7 +16,7 @@ def test_coverage_endpoint(tmp_path, monkeypatch):
     db.init_db()
     con = db.connect()
     try:
-        now = datetime.now(timezone.utc)
+        now = utcnow_dt()
         recent = (now - timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
         old = (now - timedelta(minutes=20)).strftime("%Y-%m-%d %H:%M:%S")
         con.execute(

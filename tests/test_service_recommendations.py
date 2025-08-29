@@ -7,7 +7,8 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
 from app import service, db, type_cache
 import app.config as config
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+from app.util import utcnow_dt
 
 
 def seed_basic(con):
@@ -89,7 +90,7 @@ def test_recommendations_show_all(tmp_path, monkeypatch):
 
 
 def seed_legacy(con):
-    now = datetime.now(timezone.utc)
+    now = utcnow_dt()
     stale = now - timedelta(hours=1)
     con.execute(
         """
