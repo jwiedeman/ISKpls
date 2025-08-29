@@ -1,7 +1,10 @@
 from fastapi import APIRouter, WebSocket
+from starlette.websockets import WebSocketDisconnect
 import asyncio
 import json
+import logging
 from .util import utcnow
+from .status import update_status
 
 router = APIRouter()
 _clients: set[WebSocket] = set()
@@ -10,7 +13,8 @@ HISTORY_MAX = 200
 
 
 async def broadcast(evt: dict) -> None:
-    """Send an event to all connected WebSocket clients and store history."""
+    """Send an event to all WebSocket clients and update status/history."""
+    update_status(evt)
     _history.append(evt)
     if len(_history) > HISTORY_MAX:
         _history.pop(0)
@@ -36,8 +40,11 @@ async def ws(ws: WebSocket):
         while True:
             # keepalive (we ignore any received data)
             await ws.receive_text()
-    except Exception:
+    except WebSocketDisconnect:
         pass
+    except Exception:
+        logging.exception("Unexpected WebSocket error")
+        await ws.close()
     finally:
         _clients.discard(ws)
 
