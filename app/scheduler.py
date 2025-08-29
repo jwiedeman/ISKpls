@@ -6,7 +6,14 @@ from .db import connect
 from .jita_snapshots import refresh_one
 from .jobs import record_job
 from .status import STATUS
-from .emit import job_started, job_progress, job_finished, emit_sync
+from .emit import (
+    job_started,
+    job_progress,
+    job_finished,
+    emit_sync,
+    pipeline_price_updated,
+)
+from .util import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -197,3 +204,4 @@ def run_tick(max_calls: int = 800, workers: int = 6) -> None:
             }
         )
         job_finished(rid, ok=True, items=count, ms=ms)
+        pipeline_price_updated(completed, utcnow())

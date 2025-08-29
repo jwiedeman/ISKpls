@@ -119,6 +119,19 @@ def jobs_event(pending: list[dict]) -> None:
     emit_sync({"type": "jobs", "pending": pending})
 
 
+# Pipeline update helpers ------------------------------------------------------------
+
+
+def pipeline_price_updated(count: int, as_of: str) -> None:
+    """Emit an event signalling fresh market price data."""
+    emit_sync({"type": "pipeline.price.updated", "count": count, "as_of": as_of})
+
+
+def pipeline_profit_updated(count: int, as_of: str) -> None:
+    """Emit an event signalling refreshed profit/valuation data."""
+    emit_sync({"type": "pipeline.profit.updated", "count": count, "as_of": as_of})
+
+
 def build_finished(buildId: str, ok: bool, rows: int = 0, ms: int = 0, error: str | None = None) -> None:
     emit_sync(
         {

@@ -65,3 +65,8 @@ def test_scheduler_tick_emits_structured_events(tmp_path, monkeypatch):
     assert finish["unique_types_touched"] == 3
     assert finish["errors"] == 0
 
+    # price pipeline event emitted with count and timestamp
+    price_evt = next(e for e in events if e.get("type") == "pipeline.price.updated")
+    assert price_evt["count"] == 3
+    assert "as_of" in price_evt
+
