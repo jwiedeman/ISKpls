@@ -26,6 +26,23 @@ class BadWS:
         raise RuntimeError("boom")
 
 
+class OddWS:
+    """WebSocket stub whose ``close`` returns a coroutine."""
+
+    def __init__(self) -> None:
+        self.client = "odd"
+        self.closed = False
+
+    async def send_text(self, txt: str) -> None:
+        raise RuntimeError("boom")
+
+    async def _aclose(self) -> None:
+        self.closed = True
+
+    def close(self):  # intentionally sync returning coroutine
+        return self._aclose()
+
+
 def test_broadcast_prunes_dead_clients(caplog):
     caplog.set_level(logging.INFO)
     good = GoodWS()
@@ -38,4 +55,14 @@ def test_broadcast_prunes_dead_clients(caplog):
     assert good.sent[0] == json.dumps({"type": "test"})
     assert any("WebSocket send failed for bad" in r.message for r in caplog.records)
     assert any("WebSocket pruned" in r.message for r in caplog.records)
+    ws_bus._clients.clear()
+
+
+def test_broadcast_awaits_close_returning_coroutine():
+    odd = OddWS()
+    ws_bus._clients.clear()
+    ws_bus._clients.add(odd)
+    asyncio.run(ws_bus.broadcast({"type": "test"}))
+    assert odd.closed
+    assert odd not in ws_bus._clients
     ws_bus._clients.clear()
