@@ -1,9 +1,11 @@
 import time
 from datetime import datetime
 import requests
+import time
 from .db import connect
 from .config import REGION_ID, DATASOURCE, STATION_ID
 from .esi import BASE
+from .util import utcnow
 
 
 def respect_error_limit(r):
@@ -46,7 +48,7 @@ def fetch_orders_for_type(tid, order_type):
 def refresh_one(con, tid):
     bid, bid_c, bid_u = fetch_orders_for_type(tid, "buy")
     ask, ask_c, ask_u = fetch_orders_for_type(tid, "sell")
-    ts = datetime.utcnow().isoformat()
+    ts = utcnow()
     con.execute(
         """
         INSERT OR REPLACE INTO market_snapshots

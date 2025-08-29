@@ -10,7 +10,6 @@ headers exposed via :mod:`app.esi`.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
 import heapq
 import json
 import time
@@ -19,6 +18,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from . import db, esi
 from .status import STATUS
 from .emit import job_started, job_finished, queue_event, jobs_event, run_id
+from .util import utcnow
 
 # Public state for status reporting -------------------------------------------------
 
@@ -41,9 +41,7 @@ class Job:
     args: tuple = ()
     kwargs: dict = field(default_factory=dict)
     priority: str = "P2"
-    queued_at: str = field(
-        default_factory=lambda: datetime.utcnow().isoformat() + "Z"
-    )
+    queued_at: str = field(default_factory=utcnow)
     run_id: str = field(default_factory=run_id)
 
 
@@ -152,7 +150,7 @@ def worker(limiter: RateLimiter) -> None:
 def record_job(name: str, ok: bool, details: Optional[Any] = None) -> None:
     """Record a job execution in the ``jobs_history`` table."""
 
-    ts = datetime.utcnow().isoformat()
+    ts = utcnow()
     con = db.connect()
     try:
         con.execute(

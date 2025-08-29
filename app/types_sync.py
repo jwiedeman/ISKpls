@@ -1,13 +1,13 @@
 import sqlite3
-from datetime import datetime
 from .esi import BASE, paged
 from .config import REGION_ID, DATASOURCE
 from .db import connect
+from .util import utcnow
 
 
 def seed_region_types():
     con = connect()
-    now = datetime.utcnow().isoformat()
+    now = utcnow()
     url = f"{BASE}/markets/{REGION_ID}/types/"
     for tid in paged(url, params={"datasource": DATASOURCE}):
         con.execute(

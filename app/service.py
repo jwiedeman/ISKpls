@@ -1,7 +1,7 @@
 from __future__ import annotations
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from typing import Any, Literal
 from statistics import median
@@ -26,6 +26,7 @@ from .ticks import tick
 from .pricing import compute_profit, deal_label, Fees
 from .status import status_router
 from .ws_bus import router as ws_router, start_heartbeat, stop_heartbeat
+from .util import utcnow, parse_utc
 import json
 
 
@@ -191,7 +192,7 @@ def add_watchlist(type_id: int, note: str | None = None):
     try:
         con.execute(
             "INSERT OR REPLACE INTO watchlist(type_id, added_ts, note) VALUES(?, ?, ?)",
-            (type_id, datetime.utcnow().isoformat(), note),
+            (type_id, utcnow(), note),
         )
         con.commit()
     finally:
@@ -298,7 +299,7 @@ def _list_latest_items(
         ).fetchall()
     finally:
         con.close()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     results = []
     for row in rows:
         if include_rec:
@@ -328,7 +329,7 @@ def _list_latest_items(
         label = deal_label(profit_pct, thresholds=thresholds)
         if deal_filter and label not in deal_filter:
             continue
-        last_dt = datetime.fromisoformat(ts)
+        last_dt = parse_utc(ts)
         fresh_ms = int((now - last_dt).total_seconds() * 1000)
         item = {
             "type_id": tid,
@@ -463,7 +464,7 @@ def legacy_list_recommendations(
         ).fetchall()
     finally:
         con.close()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     results = []
     for (
         tid,
@@ -486,7 +487,7 @@ def legacy_list_recommendations(
             continue
         if vol is None or vol < min_vol:
             continue
-        last_dt = datetime.fromisoformat(ts)
+        last_dt = parse_utc(ts)
         fresh_ms = int((now - last_dt).total_seconds() * 1000)
         if fresh_ms > REC_FRESH_MS:
             continue
@@ -836,14 +837,14 @@ def inventory_coverage():
     finally:
         con.close()
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     ages: list[int] = []
     oldest_type: int | None = None
     oldest_age = -1
     for type_id, ts in rows:
         if not ts:
             continue
-        age = int((now - datetime.fromisoformat(ts)).total_seconds() * 1000)
+        age = int((now - parse_utc(ts)).total_seconds() * 1000)
         ages.append(age)
         if age > oldest_age:
             oldest_age = age
@@ -887,9 +888,9 @@ def coverage_summary():
     finally:
         con.close()
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     ages = [
-        int((now - datetime.fromisoformat(ts)).total_seconds() * 1000)
+        int((now - parse_utc(ts)).total_seconds() * 1000)
         for (ts,) in rows
         if ts
     ]

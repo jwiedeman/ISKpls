@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import sys
 from pathlib import Path
 
@@ -15,10 +15,9 @@ def test_coverage_endpoint(tmp_path, monkeypatch):
     db.init_db()
     con = db.connect()
     try:
-        now = datetime.utcnow()
-        fmt = "%Y-%m-%d %H:%M:%S"
-        recent = (now - timedelta(minutes=5)).strftime(fmt)
-        old = (now - timedelta(minutes=20)).strftime(fmt)
+        now = datetime.now(timezone.utc)
+        recent = (now - timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+        old = (now - timedelta(minutes=20)).strftime("%Y-%m-%d %H:%M:%S")
         con.execute(
             "INSERT INTO market_snapshots(ts_utc, type_id, station_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units) VALUES (?,?,?,?,?,?,?,?,?)",
             (recent, 1, STATION_ID, 10, 12, 0, 0, 0, 0),
