@@ -1,6 +1,7 @@
-from .db import connect
-from .config import STATION_ID, REGION_ID, SALES_TAX, BROKER_SELL
+from .config import STATION_ID, REGION_ID
 from .market import best_bid_ask_station
+from .pricing import fees_from_settings
+from .settings_service import get_settings
 from .util import utcnow, utcnow_dt
 
 
@@ -54,7 +55,8 @@ def compute_portfolio_snapshot(con):
         qs_val += (bid or 0.0) * qty
         mk_val += (ask or bid or 0.0) * qty
 
-    sell_net = sell_gross * (1 - SALES_TAX - BROKER_SELL)
+    fees = fees_from_settings(get_settings())
+    sell_net = sell_gross * (1 - fees.sell_total)
 
     nav_quicksell = balance + buy_escrow + qs_val + sell_net
     nav_mark = balance + buy_escrow + mk_val + sell_net

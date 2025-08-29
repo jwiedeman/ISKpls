@@ -4,7 +4,8 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from app import service, db, config
+from app import service, db
+from app.pricing import default_fees
 
 
 def _seed_portfolio(con):
@@ -68,7 +69,8 @@ def test_portfolio_summary(tmp_path, monkeypatch):
     resp = client.get("/portfolio/summary", params={"basis": "mark"})
     assert resp.status_code == 200
     data = resp.json()
-    sell_net = 20 * (1 - config.SALES_TAX - config.BROKER_SELL)
+    fees = default_fees()
+    sell_net = 20 * (1 - fees.sell_total)
     sell_value_qs = 16.0 + sell_net
     sell_value_mk = 24.0 + sell_net
     assert data["liquid"] == 100.0
