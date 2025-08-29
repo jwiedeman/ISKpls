@@ -255,6 +255,7 @@ def _list_latest_items(
     meta: int | None = None,
     show_all: bool = False,
     include_rec: bool = False,
+    allow_negative: bool = False,
     default_sort: str = "last_updated",
 ) -> dict[str, Any]:
     """Shared listing logic for latest price snapshots."""
@@ -265,12 +266,16 @@ def _list_latest_items(
         con.create_function(
             "profit_pct",
             2,
-            lambda bid, ask: compute_profit(bid, ask, fees, tick)[1],
+            lambda bid, ask: compute_profit(
+                bid, ask, fees, tick, floor_negative=not allow_negative
+            )[1],
         )
         con.create_function(
             "profit_isk",
             2,
-            lambda bid, ask: compute_profit(bid, ask, fees, tick)[0],
+            lambda bid, ask: compute_profit(
+                bid, ask, fees, tick, floor_negative=not allow_negative
+            )[0],
         )
         con.create_function(
             "deal_label",
@@ -432,6 +437,7 @@ def list_db_items(
         search=search,
         min_profit_pct=min_profit_pct,
         deal_filter=deal_filter,
+        allow_negative=True,
         default_sort="last_updated",
     )
 

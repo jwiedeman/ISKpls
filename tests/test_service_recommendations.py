@@ -23,7 +23,7 @@ def seed_basic(con):
         INSERT INTO market_snapshots(ts_utc, type_id, station_id, best_bid, best_ask, bid_count, ask_count, jita_bid_units, jita_ask_units)
         VALUES
         ('2024-01-01 00:00:00',1,?,110,100,0,0,0,0),
-        ('2024-01-01 00:00:00',2,?,220,200,0,0,0,0)
+        ('2024-01-01 00:00:00',2,?,100,220,0,0,0,0)
         """,
         (config.STATION_ID, config.STATION_ID),
     )
@@ -59,8 +59,10 @@ def test_db_items(tmp_path, monkeypatch):
     assert data["total"] == 2
     deals = {r["deal"] for r in data["rows"]}
     assert deals <= {"Great", "Good", "Neutral", "Bad"}
+    profit_pcts = [r["profit_pct"] for r in data["rows"]]
+    assert any(p < 0 for p in profit_pcts)
+    assert any(p > 0 for p in profit_pcts)
     for row in data["rows"]:
-        assert row["profit_pct"] >= 0
         assert "last_updated" in row
         assert row["has_both_sides"] is True
 

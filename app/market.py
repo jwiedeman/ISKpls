@@ -58,6 +58,7 @@ def margin_after_fees(buy_px, sell_px):
         best_ask=buy_px,
         fees=fees,
         tick=lambda v, _: v,
+        floor_negative=False,
     )
     return profit
 
