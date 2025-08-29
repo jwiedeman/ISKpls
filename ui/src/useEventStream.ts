@@ -56,33 +56,59 @@ export function useEventStream() {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-      function stash(evts: RunwayEvent[]) {
-        try {
-          sessionStorage.setItem("runway_events", JSON.stringify(evts.slice(-200)));
-        } catch {
-          /* ignore */
-        }
+    function stash(evts: RunwayEvent[]) {
+      try {
+        sessionStorage.setItem("runway_events", JSON.stringify(evts.slice(-200)));
+      } catch {
+        /* ignore */
       }
+    }
 
-    const ws = new WebSocket(
-      `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`
+    let retry = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let active = true;
+
+    // Establish the WebSocket connection with exponential backoff reconnects.
+    function connect() {
+      const ws = new WebSocket(
+        `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`
+      );
+      wsRef.current = ws;
+      ws.onopen = () => {
+        retry = 0;
+        setConnected(true);
+      };
+      ws.onclose = () => {
+        setConnected(false);
+        if (!active) return;
+        const delay = Math.min(1000 * 2 ** retry, 10000);
+        retry += 1;
+        reconnectTimer = setTimeout(connect, delay);
+      };
+      ws.onerror = () => {
+        setConnected(false);
+        ws.close();
+      };
+      ws.onmessage = (e) => {
+        const evt = JSON.parse(e.data) as RunwayEvent;
+        setEvents((prev) => {
+          const next = [...prev.slice(-199), evt];
+          stash(next);
+          return next;
+        });
+      };
+    }
+
+    connect();
+    const ping = setInterval(
+      () => wsRef.current && wsRef.current.readyState === 1 && wsRef.current.send("ping"),
+      10000
     );
-    wsRef.current = ws;
-    ws.onopen = () => setConnected(true);
-    ws.onclose = () => setConnected(false);
-    ws.onerror = () => setConnected(false);
-    ws.onmessage = (e) => {
-      const evt = JSON.parse(e.data) as RunwayEvent;
-      setEvents((prev) => {
-        const next = [...prev.slice(-199), evt];
-        stash(next);
-        return next;
-      });
-    };
-    const ping = setInterval(() => ws && ws.readyState === 1 && ws.send("ping"), 10000);
     return () => {
+      active = false;
       clearInterval(ping);
-      if (ws) ws.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (wsRef.current) wsRef.current.close();
     };
   }, []);
 

@@ -22,7 +22,8 @@ async def broadcast(evt: dict) -> None:
     for ws in list(_clients):
         try:
             await ws.send_text(json.dumps(evt))
-        except Exception:
+        except Exception as exc:
+            logging.info("WebSocket send failed: %s", exc)
             dead.append(ws)
     for ws in dead:
         _clients.discard(ws)
@@ -33,6 +34,7 @@ async def ws(ws: WebSocket):
     """WebSocket endpoint broadcasting structured events."""
     await ws.accept()
     _clients.add(ws)
+    logging.info("WebSocket connected: %s", ws.client)
     # hydrate late joiners with recent history
     for evt in _history[-40:]:
         await ws.send_text(json.dumps(evt))
@@ -41,7 +43,7 @@ async def ws(ws: WebSocket):
             # keepalive (we ignore any received data)
             await ws.receive_text()
     except WebSocketDisconnect:
-        pass
+        logging.info("WebSocket disconnected: %s", ws.client)
     except Exception:
         logging.exception("Unexpected WebSocket error")
         await ws.close()
