@@ -10,13 +10,14 @@ from .settings_service import (
     update_settings,
     FIELD_META,
     validate_settings,
+    get_scheduler_settings,
+    update_scheduler_settings,
 )
 from .recommender import build_recommendations
 from .scheduler import run_tick
 from .db import connect, init_db
 from .valuation import compute_portfolio_snapshot, refresh_type_valuations
 from .auth import get_token, token_status
-from .scheduler_config import get_scheduler_settings, update_scheduler_settings
 from .type_cache import get_type_name, refresh_type_name_cache, ensure_type_names
 from .snipes import find_snipes
 from .config import SNIPE_EPSILON, SNIPE_Z, SPREAD_BUFFER, STATION_ID, REC_FRESH_MS
