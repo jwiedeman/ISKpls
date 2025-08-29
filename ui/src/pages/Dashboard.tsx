@@ -74,7 +74,8 @@ export default function Dashboard() {
   async function toggleScheduler(name: string, enabled: boolean) {
     setLoading(true);
     try {
-      await updateSchedulers({ [name]: { enabled } });
+      const cfg = schedulers[name];
+      await updateSchedulers({ [name]: { enabled, interval: cfg.interval } });
       await refresh();
     } catch (e: unknown) {
       if (e instanceof Error) {
