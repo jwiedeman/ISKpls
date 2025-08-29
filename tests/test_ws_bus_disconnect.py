@@ -7,6 +7,7 @@ import sys
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 
 from app import ws_bus
+from starlette.websockets import WebSocketDisconnect
 
 
 class GoodWS:
@@ -65,4 +66,23 @@ def test_broadcast_awaits_close_returning_coroutine():
     asyncio.run(ws_bus.broadcast({"type": "test"}))
     assert odd.closed
     assert odd not in ws_bus._clients
+    ws_bus._clients.clear()
+
+
+class DiscWS:
+    def __init__(self) -> None:
+        self.client = "disc"
+
+    async def send_text(self, txt: str) -> None:
+        raise WebSocketDisconnect(1000)
+
+
+def test_broadcast_logs_disconnect(caplog):
+    caplog.set_level(logging.INFO)
+    disc = DiscWS()
+    ws_bus._clients.clear()
+    ws_bus._clients.add(disc)
+    asyncio.run(ws_bus.broadcast({"type": "test"}))
+    assert disc not in ws_bus._clients
+    assert any("WebSocket disconnected during send: disc" in r.message for r in caplog.records)
     ws_bus._clients.clear()
