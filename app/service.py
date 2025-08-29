@@ -26,6 +26,7 @@ from .pricing import compute_profit, deal_label, fees_from_settings
 from .status import status_router
 from .ws_bus import router as ws_router, start_heartbeat, stop_heartbeat
 from .util import utcnow, utcnow_dt, parse_utc
+from .emit import pipeline_profit_updated
 import json
 
 
@@ -908,6 +909,7 @@ def recompute_valuations():
         if ids:
             refresh_type_valuations(con, sorted(ids))
         count = len(ids)
+    pipeline_profit_updated(count, utcnow())
     return {"count": count}
 
 

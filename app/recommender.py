@@ -9,7 +9,13 @@ from .config import (
     MOM_THRESHOLD,
 )
 from .jobs import record_job
-from .emit import build_started, build_progress, build_finished
+from .emit import (
+    build_started,
+    build_progress,
+    build_finished,
+    pipeline_profit_updated,
+)
+from .util import utcnow
 from typing import Literal
 
 
@@ -146,6 +152,7 @@ def build_recommendations(
         con.commit()
         record_job("recommendations", True, {"count": scored})
         build_finished(bid, True, rows=scored, ms=ms)
+        pipeline_profit_updated(scored, utcnow())
         return results
     except Exception as e:
         ms = int((time.time() - t0) * 1000)

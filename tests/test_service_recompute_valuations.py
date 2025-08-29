@@ -45,6 +45,13 @@ def test_recompute_valuations(tmp_path, monkeypatch):
         lambda tid, station, region: (tid * 10.0, tid * 20.0),
     )
 
+    events = []
+
+    async def fake_broadcast(evt):
+        events.append(evt)
+
+    monkeypatch.setattr("app.emit.broadcast", fake_broadcast)
+
     client = TestClient(service.app)
     resp = client.post("/valuations/recompute")
     assert resp.status_code == 200
@@ -58,3 +65,7 @@ def test_recompute_valuations(tmp_path, monkeypatch):
     finally:
         con.close()
     assert rows == [(1, 10.0, 20.0), (2, 20.0, 40.0)]
+
+    profit_evt = next(e for e in events if e.get("type") == "pipeline.profit.updated")
+    assert profit_evt["count"] == 2
+    assert "as_of" in profit_evt
