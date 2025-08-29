@@ -1,7 +1,7 @@
 from fastapi import APIRouter, WebSocket
 import asyncio
 import json
-from datetime import datetime
+from .util import utcnow
 
 router = APIRouter()
 _clients: set[WebSocket] = set()
@@ -47,7 +47,7 @@ _heartbeat_task: asyncio.Task | None = None
 
 async def _heartbeat_loop() -> None:
     while True:
-        await broadcast({"type": "heartbeat", "now": datetime.utcnow().isoformat() + "Z"})
+        await broadcast({"type": "heartbeat", "now": utcnow()})
         await asyncio.sleep(5)
 
 

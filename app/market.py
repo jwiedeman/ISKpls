@@ -12,6 +12,7 @@ from .config import (
     MIN_DAYS_TRADED,
     VENUE,
 )
+from .pricing import compute_profit, Fees
 
 
 def station_region_id(station_id):
@@ -50,9 +51,23 @@ def region_history(type_id, region_id):
 
 
 def margin_after_fees(buy_px, sell_px):
-    return sell_px * (1 - SALES_TAX - BROKER_SELL - RELIST_HAIRCUT) - buy_px * (
-        1 + BROKER_BUY
+    """Return net profit between ``buy_px`` and ``sell_px`` after fees.
+
+    This leverages :func:`app.pricing.compute_profit` to avoid duplicating
+    fee logic. ``buy_px`` represents the price paid while ``sell_px`` is the
+    price received.
+    """
+    fees = Fees(
+        buy_total=BROKER_BUY,
+        sell_total=SALES_TAX + BROKER_SELL + RELIST_HAIRCUT,
     )
+    profit, _ = compute_profit(
+        best_bid=sell_px,
+        best_ask=buy_px,
+        fees=fees,
+        tick=lambda v, _: v,
+    )
+    return profit
 
 
 def mom_uplift(df):

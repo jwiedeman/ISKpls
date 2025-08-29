@@ -1,6 +1,6 @@
-from datetime import datetime
 from typing import Any, Dict
 from fastapi import APIRouter
+from .util import utcnow
 
 status_router = APIRouter()
 
@@ -27,7 +27,7 @@ def update_status(evt: Dict[str, Any]) -> None:
                 "runId": evt.get("runId"),
                 "progress": 0,
                 "detail": "",
-                "since": datetime.utcnow().isoformat() + "Z",
+                "since": utcnow(),
             }
         )
     elif t == "job_progress":
@@ -54,7 +54,7 @@ def update_status(evt: Dict[str, Any]) -> None:
         rec: Dict[str, Any] = {
             "job": job_name,
             "ok": evt.get("ok"),
-            "ts": datetime.utcnow().isoformat() + "Z",
+            "ts": utcnow(),
         }
         if evt.get("ms") is not None:
             rec["ms"] = evt.get("ms")

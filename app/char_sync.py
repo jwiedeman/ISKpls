@@ -1,8 +1,8 @@
-from datetime import datetime
 import logging
 from .esi import BASE, get, paged
 from .db import connect
 from .config import DATASOURCE
+from .util import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ def sync_wallet_balance(con, char_id, token):
     if code == 304:
         logger.info("Wallet balance not modified")
         return
-    ts = datetime.utcnow().isoformat()
+    ts = utcnow()
     con.execute(
         "INSERT OR REPLACE INTO wallet_snapshots (ts_utc, balance) VALUES (?, ?)",
         (ts, float(data)),
@@ -118,7 +118,7 @@ def sync_open_orders(con, char_id, token):
                 o.get("range"),
                 o.get("min_volume"),
                 o.get("escrow", 0.0),
-                datetime.utcnow().isoformat(),
+                utcnow(),
             ),
         )
     con.commit()
@@ -159,7 +159,7 @@ def sync_order_history(con, char_id, token, page_limit=10):
                     o.get("range"),
                     o.get("min_volume"),
                     o.get("escrow", 0.0),
-                    datetime.utcnow().isoformat(),
+                    utcnow(),
                     o.get("state", "finished"),
                 ),
             )
@@ -189,7 +189,7 @@ def sync_assets(con, char_id, token):
                 row["location_id"],
                 row.get("location_type"),
                 row.get("location_flag"),
-                datetime.utcnow().isoformat(),
+                utcnow(),
             ),
         )
         count += 1

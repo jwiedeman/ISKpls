@@ -2,6 +2,7 @@ from datetime import datetime
 from .db import connect
 from .config import REGION_ID, DATASOURCE
 from .esi import BASE
+from .util import utcnow
 import requests
 
 
@@ -33,7 +34,7 @@ def refresh_trends(limit_types=300):
         "SELECT type_id FROM region_types WHERE region_id=? LIMIT ?",
         (REGION_ID, limit_types),
     ).fetchall()
-    now = datetime.utcnow().isoformat()
+    now = utcnow()
     for (tid,) in rows:
         hist = region_history(tid)
         mom = compute_mom(hist)

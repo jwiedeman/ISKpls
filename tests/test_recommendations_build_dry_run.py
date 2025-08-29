@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
 
@@ -25,7 +25,7 @@ def test_recommendations_build_dry_run(tmp_path, monkeypatch):
                 (3, 180, 0.05),
             ],
         )
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         recent = (now - timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
         old = (now - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
         con.execute(

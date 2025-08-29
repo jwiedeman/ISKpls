@@ -1,6 +1,8 @@
 from collections import deque, defaultdict
 from datetime import datetime
+from datetime import datetime, timezone
 from .db import connect
+from .util import utcnow
 
 
 def load_transactions(con):
@@ -130,7 +132,7 @@ def pnl_fifo():
                 INSERT INTO inventory_cost_basis(type_id, remaining_qty, avg_cost, updated)
                 VALUES (?,?,?,?)
                 """,
-                (type_id, total_qty, avg_cost, datetime.utcnow().isoformat()),
+                (type_id, total_qty, avg_cost, utcnow()),
             )
     con.commit()
     con.close()
