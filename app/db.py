@@ -221,8 +221,16 @@ CREATE TABLE IF NOT EXISTS app_settings (
 """
 
 
-def connect():
-    con = sqlite3.connect(DB_PATH)
+def connect(timeout: float = 30.0):
+    """Return a SQLite connection with a longer busy timeout.
+
+    When multiple background jobs hit the database concurrently the default
+    five second timeout is occasionally not enough and SQLite raises
+    ``OperationalError: database is locked``.  By increasing the timeout we let
+    connections wait a bit longer for the lock to clear instead of failing.
+    """
+
+    con = sqlite3.connect(DB_PATH, timeout=timeout)
     con.execute("PRAGMA foreign_keys=ON;")
     return con
 
