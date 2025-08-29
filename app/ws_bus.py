@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 from contextlib import suppress
+import inspect
 from typing import Any, Dict
 from .util import utcnow
 from .status import update_status
@@ -37,10 +38,9 @@ async def broadcast(evt: Dict[str, Any]) -> None:
             close = getattr(ws, "close", None)
             if close:
                 with suppress(Exception):
-                    if asyncio.iscoroutinefunction(close):
-                        await close()
-                    else:
-                        close()
+                    res = close()
+                    if inspect.isawaitable(res):
+                        await res
             dead.append(ws)
 
     for ws in dead:
