@@ -4,16 +4,17 @@ import asyncio
 import json
 import logging
 from contextlib import suppress
+from typing import Any, Dict
 from .util import utcnow
 from .status import update_status
 
 router = APIRouter()
 _clients: set[WebSocket] = set()
-_history: list[dict] = []
+_history: list[Dict[str, Any]] = []
 HISTORY_MAX = 200
 
 
-async def broadcast(evt: dict) -> None:
+async def broadcast(evt: Dict[str, Any]) -> None:
     """Send an event to all WebSocket clients and update status/history."""
     update_status(evt)
     _history.append(evt)
@@ -48,14 +49,14 @@ async def broadcast(evt: dict) -> None:
 
 
 @router.websocket("/ws")
-async def ws(ws: WebSocket):
+async def ws(ws: WebSocket) -> None:
     """WebSocket endpoint broadcasting structured events."""
     await ws.accept()
     _clients.add(ws)
     logging.info("WebSocket connected: %s", ws.client)
     # hydrate late joiners with recent history
     for evt in _history[-40:]:
-        await ws.send_text(json.dumps(evt))
+        await ws.send_text(json.dumps(evt, default=str))
     try:
         while True:
             # keepalive (we ignore any received data)
