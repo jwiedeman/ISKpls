@@ -32,6 +32,10 @@ async def broadcast(evt: Dict[str, Any]) -> None:
     for ws in list(_clients):
         try:
             await ws.send_text(msg)
+        except WebSocketDisconnect:
+            client = getattr(ws, "client", ws)
+            logging.info("WebSocket disconnected during send: %s", client)
+            dead.append(ws)
         except Exception as exc:
             client = getattr(ws, "client", ws)
             logging.warning("WebSocket send failed for %s: %s", client, exc)
