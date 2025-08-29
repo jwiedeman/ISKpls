@@ -1,22 +1,46 @@
-import { useReactTable, type ColumnDef, type SortingState, type OnChangeFn, getCoreRowModel, getSortedRowModel, flexRender } from '@tanstack/react-table';
+import {
+  useReactTable,
+  type ColumnDef,
+  type SortingState,
+  type OnChangeFn,
+  type PaginationState,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+} from '@tanstack/react-table';
 
 interface Props<T> {
   columns: ColumnDef<T, unknown>[];
   data: T[];
   sorting: SortingState;
   onSortingChange: OnChangeFn<SortingState>;
+  pageIndex: number;
+  pageCount: number;
+  onPageChange: OnChangeFn<PaginationState>;
   stickyHeader?: boolean;
 }
 
-export default function DataTable<T>({ columns, data, sorting, onSortingChange, stickyHeader = false }: Props<T>) {
+export default function DataTable<T>({
+  columns,
+  data,
+  sorting,
+  onSortingChange,
+  pageIndex,
+  pageCount,
+  onPageChange,
+  stickyHeader = false,
+}: Props<T>) {
   const table = useReactTable({
     data,
     columns,
-    state: { sorting },
+    state: { sorting, pagination: { pageIndex, pageSize: 25 } },
     onSortingChange,
+    onPaginationChange: onPageChange,
+    pageCount,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     manualSorting: true,
+    manualPagination: true,
   });
 
   return (
@@ -59,6 +83,25 @@ export default function DataTable<T>({ columns, data, sorting, onSortingChange, 
             ))}
           </tbody>
         </table>
+      </div>
+      <div style={{ marginTop: '0.5em' }}>
+        <button
+          onClick={() => table.previousPage()}
+          disabled={!table.getCanPreviousPage()}
+          style={{ marginRight: '0.5em' }}
+        >
+          Previous
+        </button>
+        <span>
+          Page {pageIndex + 1} of {pageCount || 1}
+        </span>
+        <button
+          onClick={() => table.nextPage()}
+          disabled={!table.getCanNextPage()}
+          style={{ marginLeft: '0.5em' }}
+        >
+          Next
+        </button>
       </div>
     </div>
   );

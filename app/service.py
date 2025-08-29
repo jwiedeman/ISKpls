@@ -262,6 +262,21 @@ def _list_latest_items(
     fees = fees_from_settings(settings)
     thresholds = settings["DEAL_THRESHOLDS"]
     with session() as con:
+        con.create_function(
+            "profit_pct",
+            2,
+            lambda bid, ask: compute_profit(bid, ask, fees, tick)[1],
+        )
+        con.create_function(
+            "profit_isk",
+            2,
+            lambda bid, ask: compute_profit(bid, ask, fees, tick)[0],
+        )
+        con.create_function(
+            "deal_label",
+            1,
+            lambda pct: deal_label(pct, thresholds=thresholds),
+        )
         where = ["lp.station_id = ?"]
         params: list[Any] = [station_id]
         if category is not None:
@@ -277,6 +292,21 @@ def _list_latest_items(
             else:
                 where.append("types.name LIKE ?")
                 params.append(f"%{search}%")
+        if min_mom is not None:
+            where.append("tr.mom_pct IS NOT NULL AND tr.mom_pct >= ?")
+            params.append(min_mom)
+        if min_vol is not None:
+            where.append("tr.vol_30d_avg IS NOT NULL AND tr.vol_30d_avg >= ?")
+            params.append(min_vol)
+        if min_profit_pct > 0:
+            where.append("profit_pct(lp.best_bid, lp.best_ask) >= ?")
+            params.append(min_profit_pct)
+        if deal_filter:
+            placeholders = ",".join("?" for _ in deal_filter)
+            where.append(
+                f"deal_label(profit_pct(lp.best_bid, lp.best_ask)) IN ({placeholders})"
+            )
+            params.extend(deal_filter)
         join_rec = ""
         select_extra = ""
         if include_rec:
@@ -286,17 +316,33 @@ def _list_latest_items(
                 where.append("r.type_id IS NOT NULL")
             select_extra = ", r.net_pct, r.uplift_mom, r.daily_capacity, r.rationale_json"
         where_clause = " AND ".join(where)
-        rows = con.execute(
-            f"""
-            SELECT lp.type_id, types.name, lp.best_bid, lp.best_ask, lp.last_updated,
-                   tr.mom_pct, tr.vol_30d_avg{select_extra}
+        base_query = f"""
             FROM latest_prices_v lp
             {join_rec}
             LEFT JOIN types ON lp.type_id = types.type_id
             LEFT JOIN type_trends tr ON tr.type_id = lp.type_id
             WHERE {where_clause}
+        """
+        total = con.execute(f"SELECT COUNT(*) {base_query}", params).fetchone()[0]
+        allowed = {
+            "last_updated": "lp.last_updated",
+            "type_name": "types.name",
+            "best_bid": "lp.best_bid",
+            "best_ask": "lp.best_ask",
+            "profit_pct": "profit_pct(lp.best_bid, lp.best_ask)",
+        }
+        sort_col = allowed.get(sort, allowed.get(default_sort, "lp.last_updated"))
+        rows = con.execute(
+            f"""
+            SELECT lp.type_id, types.name, lp.best_bid, lp.best_ask, lp.last_updated,
+                   tr.mom_pct, tr.vol_30d_avg{select_extra},
+                   profit_pct(lp.best_bid, lp.best_ask) AS profit_pct,
+                   profit_isk(lp.best_bid, lp.best_ask) AS profit_isk
+            {base_query}
+            ORDER BY {sort_col} {dir.upper()}
+            LIMIT ? OFFSET ?
             """,
-            params,
+            params + [limit, offset],
         ).fetchall()
     now = utcnow_dt()
     results = []
@@ -314,20 +360,23 @@ def _list_latest_items(
                 uplift_mom,
                 daily_cap,
                 rationale,
+                profit_pct,
+                profit_isk,
             ) = row
         else:
-            tid, tname, bid, ask, ts, mom, vol = row
+            (
+                tid,
+                tname,
+                bid,
+                ask,
+                ts,
+                mom,
+                vol,
+                profit_pct,
+                profit_isk,
+            ) = row
         has_both = bid is not None and ask is not None
-        profit_isk, profit_pct = compute_profit(bid, ask, fees, tick)
-        if profit_pct < min_profit_pct:
-            continue
-        if min_mom is not None and (mom is None or mom < min_mom):
-            continue
-        if min_vol is not None and (vol is None or vol < min_vol):
-            continue
         label = deal_label(profit_pct, thresholds=thresholds)
-        if deal_filter and label not in deal_filter:
-            continue
         last_dt = parse_utc(ts)
         fresh_ms = int((now - last_dt).total_seconds() * 1000)
         item = {
@@ -358,19 +407,7 @@ def _list_latest_items(
                 }
             )
         results.append(item)
-    allowed = {
-        "last_updated": "last_updated",
-        "type_name": "type_name",
-        "best_bid": "best_bid",
-        "best_ask": "best_ask",
-        "profit_pct": "profit_pct",
-    }
-    key = allowed.get(sort, default_sort)
-    reverse = dir.lower() != "asc"
-    results.sort(key=lambda r: (r[key] is None, r[key]), reverse=reverse)
-    total = len(results)
-    sliced = results[offset : offset + limit]
-    return {"rows": sliced, "total": total}
+    return {"rows": results, "total": total}
 
 
 @app.get("/db/items")
