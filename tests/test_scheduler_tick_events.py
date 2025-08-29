@@ -1,15 +1,14 @@
-from datetime import datetime
 import pathlib, sys
 
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 
-from datetime import datetime, timezone
 from app import db, scheduler
 from app.config import STATION_ID
+from app.util import utcnow
 
 
 def _fake_refresh_one(con, tid):
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    ts = utcnow()
     con.execute(
         """
         INSERT OR REPLACE INTO market_snapshots

@@ -1,9 +1,7 @@
-from datetime import datetime
-from datetime import datetime, timezone
 from .db import connect
 from .config import STATION_ID, REGION_ID, SALES_TAX, BROKER_SELL
 from .market import best_bid_ask_station
-from .util import utcnow
+from .util import utcnow, utcnow_dt
 
 
 def refresh_type_valuations(con, type_ids):
@@ -61,7 +59,7 @@ def compute_portfolio_snapshot(con):
     nav_quicksell = balance + buy_escrow + qs_val + sell_net
     nav_mark = balance + buy_escrow + mk_val + sell_net
 
-    day = datetime.now(timezone.utc).date().isoformat()
+    day = utcnow_dt().date().isoformat()
     con.execute(
         """
         INSERT OR REPLACE INTO portfolio_daily

@@ -1,7 +1,6 @@
 from __future__ import annotations
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from typing import Any, Literal
 from statistics import median
@@ -26,7 +25,7 @@ from .ticks import tick
 from .pricing import compute_profit, deal_label, Fees
 from .status import status_router
 from .ws_bus import router as ws_router, start_heartbeat, stop_heartbeat
-from .util import utcnow, parse_utc
+from .util import utcnow, utcnow_dt, parse_utc
 import json
 
 
@@ -299,7 +298,7 @@ def _list_latest_items(
         ).fetchall()
     finally:
         con.close()
-    now = datetime.now(timezone.utc)
+    now = utcnow_dt()
     results = []
     for row in rows:
         if include_rec:
@@ -464,7 +463,7 @@ def legacy_list_recommendations(
         ).fetchall()
     finally:
         con.close()
-    now = datetime.now(timezone.utc)
+    now = utcnow_dt()
     results = []
     for (
         tid,
@@ -837,7 +836,7 @@ def inventory_coverage():
     finally:
         con.close()
 
-    now = datetime.now(timezone.utc)
+    now = utcnow_dt()
     ages: list[int] = []
     oldest_type: int | None = None
     oldest_age = -1
@@ -888,7 +887,7 @@ def coverage_summary():
     finally:
         con.close()
 
-    now = datetime.now(timezone.utc)
+    now = utcnow_dt()
     ages = [
         int((now - parse_utc(ts)).total_seconds() * 1000)
         for (ts,) in rows

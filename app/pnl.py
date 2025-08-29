@@ -1,6 +1,5 @@
 from collections import deque, defaultdict
 from datetime import datetime
-from datetime import datetime, timezone
 from .db import connect
 from .util import utcnow
 

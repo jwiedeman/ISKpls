@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from pathlib import Path
 import sys
 
@@ -8,6 +8,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app import service, db, config
 from app import recommender
+from app.util import utcnow_dt
 
 
 def test_recommendations_build_dry_run(tmp_path, monkeypatch):
@@ -25,7 +26,7 @@ def test_recommendations_build_dry_run(tmp_path, monkeypatch):
                 (3, 180, 0.05),
             ],
         )
-        now = datetime.now(timezone.utc)
+        now = utcnow_dt()
         recent = (now - timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
         old = (now - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
         con.execute(
