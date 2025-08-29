@@ -74,6 +74,9 @@ export default function Db() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fees, setFees] = useState<{ buy: number; sell: number } | null>(null);
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
+  const PAGE_SIZE = 25;
 
   async function refresh() {
     setLoading(true);
@@ -81,8 +84,8 @@ export default function Db() {
       const sort = sorting[0]?.id ?? 'last_updated';
       const dir = sorting[0]?.desc ? 'desc' : 'asc';
       const data = await getDbItems({
-        limit: 50,
-        offset: 0,
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
         sort,
         dir,
         search,
@@ -90,6 +93,7 @@ export default function Db() {
         deal: dealFilters,
       });
       setRows(data.rows || []);
+       setTotal(data.total || 0);
       setError('');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -101,6 +105,10 @@ export default function Db() {
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sorting, search, minProfit, dealFilters, page]);
+
+  useEffect(() => {
+    setPage(0);
   }, [sorting, search, minProfit, dealFilters]);
 
   useEffect(() => {
@@ -232,6 +240,15 @@ export default function Db() {
         data={rows}
         sorting={sorting}
         onSortingChange={setSorting}
+        pageIndex={page}
+        pageCount={Math.ceil(total / PAGE_SIZE)}
+        onPageChange={(updater) => {
+          const next =
+            typeof updater === 'function'
+              ? updater({ pageIndex: page, pageSize: PAGE_SIZE })
+              : updater;
+          setPage(next.pageIndex);
+        }}
         stickyHeader
       />
     </div>
