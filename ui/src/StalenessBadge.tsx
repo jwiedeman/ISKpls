@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function StalenessBadge({ ms }: { ms: number }) {
   let label = 'Stale';
   let color: string = 'red';
