@@ -1,5 +1,6 @@
 import sqlite3
 import pathlib
+from contextlib import contextmanager
 
 DB_PATH = pathlib.Path("eve_trader.sqlite3")
 
@@ -231,3 +232,17 @@ def init_db():
     con.executescript(DDL)
     con.commit()
     return con
+
+
+@contextmanager
+def session():
+    """Context manager yielding a SQLite connection.
+
+    Ensures the connection is closed after use to avoid repeated
+    ``try/finally`` blocks throughout the codebase.
+    """
+    con = connect()
+    try:
+        yield con
+    finally:
+        con.close()

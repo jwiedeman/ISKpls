@@ -14,7 +14,7 @@ from .settings_service import (
 )
 from .recommender import build_recommendations
 from .scheduler import run_tick
-from .db import connect, init_db
+from .db import session, init_db
 from .valuation import compute_portfolio_snapshot, refresh_type_valuations
 from .auth import get_token, token_status
 from .type_cache import get_type_name, refresh_type_name_cache, ensure_type_names
@@ -121,11 +121,8 @@ def types_map(ids: str | None = None):
     if ids:
         id_list = [int(i) for i in ids.split(",") if i]
         return ensure_type_names(id_list)
-    con = connect()
-    try:
+    with session() as con:
         rows = con.execute("SELECT type_id, name FROM types").fetchall()
-    finally:
-        con.close()
     return {tid: name for tid, name in rows}
 
 
@@ -136,8 +133,7 @@ def search_types(q: str, limit: int = 20):
     ``q`` may be a type ID or part of a type name. Results include the
     resolved ``type_name`` for easier display on the client.
     """
-    con = connect()
-    try:
+    with session() as con:
         if q.isdigit():
             tid = int(q)
             name = ensure_type_names([tid]).get(tid)
@@ -149,8 +145,6 @@ def search_types(q: str, limit: int = 20):
             "SELECT type_id, name FROM types WHERE name LIKE ? ORDER BY name LIMIT ?",
             (f"%{q}%", limit),
         ).fetchall()
-    finally:
-        con.close()
     return {
         "results": [
             {"type_id": tid, "type_name": name} for tid, name in rows
@@ -161,13 +155,10 @@ def search_types(q: str, limit: int = 20):
 @app.get("/watchlist")
 def get_watchlist():
     """Return all watchlisted type IDs with cached names."""
-    con = connect()
-    try:
+    with session() as con:
         rows = con.execute(
             "SELECT type_id, added_ts, note FROM watchlist ORDER BY added_ts DESC",
         ).fetchall()
-    finally:
-        con.close()
     return {
         "items": [
             {
@@ -184,27 +175,21 @@ def get_watchlist():
 @app.post("/watchlist/{type_id}")
 def add_watchlist(type_id: int, note: str | None = None):
     """Add a type to the watchlist."""
-    con = connect()
-    try:
+    with session() as con:
         con.execute(
             "INSERT OR REPLACE INTO watchlist(type_id, added_ts, note) VALUES(?, ?, ?)",
             (type_id, utcnow(), note),
         )
         con.commit()
-    finally:
-        con.close()
     return {"status": "ok"}
 
 
 @app.delete("/watchlist/{type_id}")
 def remove_watchlist(type_id: int):
     """Remove a type from the watchlist."""
-    con = connect()
-    try:
+    with session() as con:
         con.execute("DELETE FROM watchlist WHERE type_id=?", (type_id,))
         con.commit()
-    finally:
-        con.close()
     return {"status": "ok"}
 
 
@@ -255,8 +240,7 @@ def _list_latest_items(
         + settings["RELIST_HAIRCUT"],
     )
     thresholds = settings["DEAL_THRESHOLDS"]
-    con = connect()
-    try:
+    with session() as con:
         where = ["lp.station_id = ?"]
         params: list[Any] = [station_id]
         if category is not None:
@@ -293,8 +277,6 @@ def _list_latest_items(
             """,
             params,
         ).fetchall()
-    finally:
-        con.close()
     now = utcnow_dt()
     results = []
     for row in rows:
@@ -423,8 +405,7 @@ def legacy_list_recommendations(
         min_mom = settings["MOM_THRESHOLD"]
     if min_vol == 0.0:
         min_vol = settings["MIN_DAILY_VOL"]
-    con = connect()
-    try:
+    with session() as con:
         where: list[str] = ["lp.station_id = ?"]
         params: list[Any] = [station_id]
         if category is not None:
@@ -458,8 +439,6 @@ def legacy_list_recommendations(
             """,
             params,
         ).fetchall()
-    finally:
-        con.close()
     now = utcnow_dt()
     results = []
     for (
@@ -600,8 +579,7 @@ def list_open_orders(
         else:
             where.append("types.name LIKE ?")
             params.append(f"%{search}%")
-    con = connect()
-    try:
+    with session() as con:
         rows = con.execute(
             f"""
             SELECT order_id, is_buy, char_orders.type_id, types.name, price, volume_total, volume_remain, issued, escrow
@@ -612,8 +590,6 @@ def list_open_orders(
             """,
             (*params, limit, offset),
         ).fetchall()
-    finally:
-        con.close()
     orders = []
     for (
         order_id,
@@ -647,8 +623,7 @@ def list_open_orders(
 @app.get("/orders/reprice")
 def reprice_order(type_id: int):
     """Return one-tick reprice guidance and net margins for a type."""
-    con = connect()
-    try:
+    with session() as con:
         row = con.execute(
             """
             SELECT best_bid, best_ask
@@ -659,8 +634,6 @@ def reprice_order(type_id: int):
             """,
             (type_id, STATION_ID),
         ).fetchone()
-    finally:
-        con.close()
     if not row or row[0] is None or row[1] is None:
         raise HTTPException(status_code=404, detail="No market data")
     best_bid, best_ask = row
@@ -706,8 +679,7 @@ def list_order_history(
         else:
             where.append("types.name LIKE ?")
             params.append(f"%{search}%")
-    con = connect()
-    try:
+    with session() as con:
         rows = con.execute(
             f"""
             SELECT order_id, is_buy, char_orders.type_id, types.name, price, volume_total, volume_remain, issued, state, escrow
@@ -718,8 +690,6 @@ def list_order_history(
             """,
             (*params, limit, offset),
         ).fetchall()
-    finally:
-        con.close()
     orders = []
     for (
         order_id,
@@ -769,8 +739,7 @@ def list_inventory(
     }
     col = allowed.get(sort, "mk_value")
     direction = "ASC" if dir.lower() == "asc" else "DESC"
-    con = connect()
-    try:
+    with session() as con:
         where = ""
         params: list[Any] = []
         if search:
@@ -796,8 +765,6 @@ def list_inventory(
             """,
             (*params, limit, offset),
         ).fetchall()
-    finally:
-        con.close()
     items = []
     for type_id, name, qty, qs_val, mk_val in rows:
         items.append(
@@ -815,8 +782,7 @@ def list_inventory(
 @app.get("/inventory/coverage")
 def inventory_coverage():
     """Return snapshot coverage statistics for market data."""
-    con = connect()
-    try:
+    with session() as con:
         cur = con.cursor()
         types_indexed = cur.execute(
             "SELECT COUNT(DISTINCT type_id) FROM market_snapshots WHERE station_id=?",
@@ -830,8 +796,6 @@ def inventory_coverage():
             "SELECT type_id, MAX(ts_utc) FROM market_snapshots WHERE station_id=? GROUP BY type_id",
             (STATION_ID,),
         ).fetchall()
-    finally:
-        con.close()
 
     now = utcnow_dt()
     ages: list[int] = []
@@ -862,8 +826,7 @@ def inventory_coverage():
 @app.get("/coverage")
 def coverage_summary():
     """Return high level coverage metrics for market snapshots."""
-    con = connect()
-    try:
+    with session() as con:
         cur = con.cursor()
         types_indexed = cur.execute(
             "SELECT COUNT(DISTINCT type_id) FROM market_snapshots WHERE station_id=?",
@@ -881,8 +844,6 @@ def coverage_summary():
             "SELECT MAX(ts_utc) FROM market_snapshots WHERE station_id=? GROUP BY type_id",
             (STATION_ID,),
         ).fetchall()
-    finally:
-        con.close()
 
     now = utcnow_dt()
     ages = [
@@ -903,8 +864,7 @@ def coverage_summary():
 @app.get("/portfolio/summary")
 def portfolio_summary(basis: Literal["mark", "quicksell"] = "mark"):
     """Return aggregate portfolio metrics and recent realized PnL."""
-    con = connect()
-    try:
+    with session() as con:
         snap = compute_portfolio_snapshot(con)
         cur = con.cursor()
         realized_7d = (
@@ -919,8 +879,6 @@ def portfolio_summary(basis: Literal["mark", "quicksell"] = "mark"):
             ).fetchone()[0]
             or 0.0
         )
-    finally:
-        con.close()
 
     sell_value_quicksell = snap["nav_quicksell"] - snap["wallet_balance"] - snap["buy_escrow"]
     sell_value_mark = snap["nav_mark"] - snap["wallet_balance"] - snap["buy_escrow"]
@@ -941,19 +899,15 @@ def portfolio_summary(basis: Literal["mark", "quicksell"] = "mark"):
 @app.get("/portfolio/nav")
 def portfolio_nav():
     """Compute and return a portfolio NAV snapshot."""
-    con = connect()
-    try:
+    with session() as con:
         snapshot = compute_portfolio_snapshot(con)
-    finally:
-        con.close()
     return snapshot
 
 
 @app.post("/valuations/recompute")
 def recompute_valuations():
     """Refresh type valuations for all known assets and orders."""
-    con = connect()
-    try:
+    with session() as con:
         cur = con.cursor()
         ids = [
             tid
@@ -964,8 +918,6 @@ def recompute_valuations():
         if ids:
             refresh_type_valuations(con, sorted(ids))
         count = len(ids)
-    finally:
-        con.close()
     return {"count": count}
 
 
