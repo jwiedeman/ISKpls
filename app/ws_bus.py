@@ -20,7 +20,12 @@ async def broadcast(evt: dict) -> None:
     if len(_history) > HISTORY_MAX:
         _history.pop(0)
 
-    msg = json.dumps(evt)
+    # ``evt`` may occasionally contain objects like ``datetime`` which are not
+    # JSON serialisable by default. ``default=str`` provides a best-effort
+    # coercion to string ensuring that the broadcast never raises because of
+    # such values. This keeps the websocket pipeline resilient to unexpected
+    # payloads while still logging them for debugging.
+    msg = json.dumps(evt, default=str)
     dead: list[WebSocket] = []
     for ws in list(_clients):
         try:
