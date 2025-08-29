@@ -3,7 +3,6 @@ import time
 from uuid import uuid4
 from typing import Optional
 from .ws_bus import broadcast
-from . import status
 
 
 def run_id() -> str:
@@ -11,7 +10,6 @@ def run_id() -> str:
 
 
 async def _send(evt: dict) -> None:
-    status.update_status(evt)
     await broadcast(evt)
 
 
