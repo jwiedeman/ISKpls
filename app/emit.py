@@ -1,7 +1,9 @@
 import asyncio
+import logging
 import time
 from uuid import uuid4
 from typing import Optional
+
 from .ws_bus import broadcast
 
 
@@ -10,7 +12,10 @@ def run_id() -> str:
 
 
 async def _send(evt: dict) -> None:
-    await broadcast(evt)
+    try:
+        await broadcast(evt)
+    except Exception:
+        logging.exception("broadcast failed: %s", evt)
 
 
 def emit_sync(evt: dict) -> None:
