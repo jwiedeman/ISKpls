@@ -17,7 +17,12 @@ def test_schedulers_get_put(tmp_path, monkeypatch):
     resp = client.get("/schedulers")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["sync_character"]["enabled"] is True
+    sc = data["sync_character"]
+    assert sc["enabled"] is True
+    assert "last_run_at" in sc
+    assert "next_run_at" in sc
+    assert "running" in sc
+    assert "queued" in sc
 
     # Update one job
     payload = {"sync_character": {"enabled": False, "interval": 120}}

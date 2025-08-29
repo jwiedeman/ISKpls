@@ -17,6 +17,11 @@ import TypeName from '../TypeName';
 interface SchedulerCfg {
   enabled: boolean;
   interval: number;
+  concurrency?: number;
+  running?: boolean;
+  queued?: number;
+  last_run_at?: string | null;
+  next_run_at?: string | null;
 }
 
 export default function Dashboard() {
@@ -137,7 +142,12 @@ export default function Dashboard() {
           <tr>
             <th>Job</th>
             <th>Interval (m)</th>
+            <th>Concurrency</th>
             <th>Enabled</th>
+            <th>Running</th>
+            <th>Queued</th>
+            <th>Last Run</th>
+            <th>Next Run</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -146,7 +156,12 @@ export default function Dashboard() {
             <tr key={name}>
               <td>{name}</td>
               <td>{cfg.interval}</td>
+              <td>{cfg.concurrency ?? ''}</td>
               <td>{cfg.enabled ? 'Yes' : 'No'}</td>
+              <td>{cfg.running ? 'Yes' : 'No'}</td>
+              <td>{cfg.queued ?? 0}</td>
+              <td>{cfg.last_run_at ?? ''}</td>
+              <td>{cfg.next_run_at ?? ''}</td>
               <td>
                 <button disabled={loading} onClick={() => runNow(name)}>Run now</button>{' '}
                 <button
