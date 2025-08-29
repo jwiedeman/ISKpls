@@ -39,19 +39,24 @@ def compute_profit(
     best_ask: float | None,
     fees: Fees,
     tick: Callable[[float, str], float] = default_tick,
+    *,
+    floor_negative: bool = True,
 ) -> Tuple[float, float]:
     """Return profit in ISK and percentage after ticks and fees.
 
     ``best_bid`` and ``best_ask`` are raw market prices. We first tick the ask
     down to compute our buy price and tick the bid up to compute our sell price.
-    Fees are then applied to each side. Profit is floored at zero to avoid
-    negative recommendations.
+    Fees are then applied to each side. By default, negative profit is floored
+    at zero to avoid confusing consumers expecting only positive returns. Pass
+    ``floor_negative=False`` to retrieve raw, possibly negative profit values.
     """
     if best_bid is None or best_ask is None:
         return 0.0, 0.0
     buy = tick(best_ask, "down") * (1 + fees.buy_total)
     sell = tick(best_bid, "up") * (1 - fees.sell_total)
-    profit_isk = max(0.0, sell - buy)
+    profit_isk = sell - buy
+    if floor_negative:
+        profit_isk = max(0.0, profit_isk)
     profit_pct = profit_isk / buy if buy > 0 else 0.0
     return profit_isk, profit_pct
 
