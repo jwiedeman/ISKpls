@@ -4,6 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from typing import Any, Literal
 from statistics import median
+from datetime import timedelta
+import json
+
 from .settings_service import (
     get_settings,
     update_settings,
@@ -13,9 +16,6 @@ from .settings_service import (
     update_scheduler_settings,
 )
 from .recommender import build_recommendations
-from .scheduler import run_tick
-from .trends import refresh_trends
-from .run_character_sync import main as sync_character_main
 from .db import session, init_db
 from .valuation import compute_portfolio_snapshot, refresh_type_valuations
 from .auth import get_token, token_status
@@ -25,13 +25,12 @@ from .config import SNIPE_EPSILON, SNIPE_Z, SPREAD_BUFFER, STATION_ID, REC_FRESH
 from .market import margin_after_fees
 from .ticks import tick
 from .pricing import compute_profit, deal_label, fees_from_settings
-from datetime import timedelta
 from .jobs import JOB_QUEUE
 from .status import status_router, STATUS
 from .ws_bus import router as ws_router, start_heartbeat, stop_heartbeat
 from .util import utcnow, utcnow_dt, parse_utc
 from .emit import pipeline_profit_updated
-import json
+from .job_runner import start_background_jobs, stop_background_jobs, enqueue_job
 
 
 @asynccontextmanager
@@ -46,9 +45,11 @@ async def lifespan(app: FastAPI):
     init_db()
     refresh_type_name_cache()
     start_heartbeat()
+    start_background_jobs()
     try:
         yield
     finally:
+        stop_background_jobs()
         stop_heartbeat()
 
 
@@ -951,29 +952,11 @@ def recommendations_build(
 
 
 @app.post("/jobs/{name}/run")
-def run_job(
-    name: str,
-    verbose: bool = False,
-    mode: Literal["profit_only", "legacy"] = "profit_only",
-):
-    """Run a background job immediately.
+def run_job(name: str):
+    """Enqueue a background job for execution."""
 
-    The optional ``verbose`` flag triggers additional event chatter so that
-    testers can observe progress updates even in fast unit-test scenarios.
-    """
-
-    if name in {"recommendations", "recommender_scan"}:
-        recs = build_recommendations(verbose=verbose, mode=mode)
-        return {"count": len(recs)}
-    if name in {"scheduler_tick", "snapshot_orders"}:
-        run_tick()
-        return {"status": "ok"}
-    if name == "refresh_trends":
-        refresh_trends()
-        return {"status": "ok"}
-    if name == "refresh_type_valuations":
-        return recompute_valuations()
-    if name == "sync_character":
-        sync_character_main()
-        return {"status": "ok"}
-    raise HTTPException(status_code=404, detail="Job not found")
+    try:
+        enqueue_job(name)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"status": "queued"}

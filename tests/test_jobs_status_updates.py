@@ -11,6 +11,7 @@ from app.status import STATUS
 
 
 def test_record_job_updates_status(tmp_path, monkeypatch):
+    monkeypatch.setenv("DISABLE_BACKGROUND_JOBS", "1")
     monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.sqlite3")
     db.init_db()
 
