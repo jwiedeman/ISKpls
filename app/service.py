@@ -14,6 +14,8 @@ from .settings_service import (
 )
 from .recommender import build_recommendations
 from .scheduler import run_tick
+from .trends import refresh_trends
+from .run_character_sync import main as sync_character_main
 from .db import session, init_db
 from .valuation import compute_portfolio_snapshot, refresh_type_valuations
 from .auth import get_token, token_status
@@ -960,10 +962,18 @@ def run_job(
     testers can observe progress updates even in fast unit-test scenarios.
     """
 
-    if name == "recommendations":
+    if name in {"recommendations", "recommender_scan"}:
         recs = build_recommendations(verbose=verbose, mode=mode)
         return {"count": len(recs)}
-    if name == "scheduler_tick":
+    if name in {"scheduler_tick", "snapshot_orders"}:
         run_tick()
+        return {"status": "ok"}
+    if name == "refresh_trends":
+        refresh_trends()
+        return {"status": "ok"}
+    if name == "refresh_type_valuations":
+        return recompute_valuations()
+    if name == "sync_character":
+        sync_character_main()
         return {"status": "ok"}
     raise HTTPException(status_code=404, detail="Job not found")
