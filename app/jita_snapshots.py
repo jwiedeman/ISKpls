@@ -1,53 +1,37 @@
 import time
-from datetime import datetime
-import requests
-import time
 from .db import connect
 from .config import REGION_ID, DATASOURCE, STATION_ID
-from .esi import BASE
+from .esi import BASE, paged
 from .util import utcnow
 
 
-def respect_error_limit(r):
-    rem = int(r.headers.get("X-ESI-Error-Limit-Remain", "100"))
-    rst = int(r.headers.get("X-ESI-Error-Limit-Reset", "10"))
-    if rem < 5:
-        time.sleep(max(rst, 2))
-
-
-def fetch_orders_for_type(tid, order_type):
+def fetch_snapshot(tid):
+    """Return best prices and volume metrics for ``tid`` at Jita."""
     url = f"{BASE}/markets/{REGION_ID}/orders/"
-    best, count, units = (None, 0, 0)
-    page = 1
-    while True:
-        params = {"order_type": order_type, "type_id": tid, "page": page, "datasource": DATASOURCE}
-        r = requests.get(url, params=params, timeout=30)
-        if r.status_code == 304:
-            break
-        r.raise_for_status()
-        data = r.json()
-        for o in data:
-            if o.get("location_id") != STATION_ID:
-                continue
-            if order_type == "buy":
-                if best is None or o["price"] > best:
-                    best = o["price"]
-            else:
-                if best is None or o["price"] < best:
-                    best = o["price"]
-            count += 1
-            units += o["volume_remain"]
-        pages = int(r.headers.get("X-Pages", "1"))
-        respect_error_limit(r)
-        if page >= pages:
-            break
-        page += 1
-    return best, count, units
+    params = {"datasource": DATASOURCE, "order_type": "all", "type_id": tid}
+    best_bid = best_ask = None
+    bid_count = ask_count = 0
+    bid_units = ask_units = 0
+    for o in paged(url, params=params):
+        if o.get("location_id") != STATION_ID:
+            continue
+        price = o["price"]
+        vol = o["volume_remain"]
+        if o.get("is_buy_order"):
+            if best_bid is None or price > best_bid:
+                best_bid = price
+            bid_count += 1
+            bid_units += vol
+        else:
+            if best_ask is None or price < best_ask:
+                best_ask = price
+            ask_count += 1
+            ask_units += vol
+    return best_bid, best_ask, bid_count, ask_count, bid_units, ask_units
 
 
 def refresh_one(con, tid):
-    bid, bid_c, bid_u = fetch_orders_for_type(tid, "buy")
-    ask, ask_c, ask_u = fetch_orders_for_type(tid, "sell")
+    bid, ask, bid_c, ask_c, bid_u, ask_u = fetch_snapshot(tid)
     ts = utcnow()
     con.execute(
         """
