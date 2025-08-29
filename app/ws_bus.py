@@ -3,6 +3,7 @@ from starlette.websockets import WebSocketDisconnect
 import asyncio
 import json
 import logging
+from contextlib import suppress
 from .util import utcnow
 from .status import update_status
 
@@ -25,16 +26,15 @@ async def broadcast(evt: dict) -> None:
         try:
             await ws.send_text(msg)
         except Exception as exc:
-            logging.info("WebSocket send failed: %s", exc)
+            client = getattr(ws, "client", ws)
+            logging.warning("WebSocket send failed for %s: %s", client, exc)
             close = getattr(ws, "close", None)
             if close:
-                try:
+                with suppress(Exception):
                     if asyncio.iscoroutinefunction(close):
                         await close()
                     else:
                         close()
-                except Exception:
-                    logging.info("WebSocket close failed", exc_info=True)
             dead.append(ws)
 
     for ws in dead:
@@ -55,11 +55,12 @@ async def ws(ws: WebSocket):
         while True:
             # keepalive (we ignore any received data)
             await ws.receive_text()
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, asyncio.CancelledError):
         logging.info("WebSocket disconnected: %s", ws.client)
     except Exception:
         logging.exception("Unexpected WebSocket error")
-        await ws.close()
+        with suppress(Exception):
+            await ws.close()
     finally:
         _clients.discard(ws)
 

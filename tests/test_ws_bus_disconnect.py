@@ -12,12 +12,16 @@ from app import ws_bus
 class GoodWS:
     def __init__(self):
         self.sent = []
+        self.client = "good"
 
     async def send_text(self, txt: str) -> None:
         self.sent.append(txt)
 
 
 class BadWS:
+    def __init__(self):
+        self.client = "bad"
+
     async def send_text(self, txt: str) -> None:
         raise RuntimeError("boom")
 
@@ -32,6 +36,6 @@ def test_broadcast_prunes_dead_clients(caplog):
     assert good in ws_bus._clients
     assert bad not in ws_bus._clients
     assert good.sent[0] == json.dumps({"type": "test"})
-    assert any("WebSocket send failed" in r.message for r in caplog.records)
+    assert any("WebSocket send failed for bad" in r.message for r in caplog.records)
     assert any("WebSocket pruned" in r.message for r in caplog.records)
     ws_bus._clients.clear()
