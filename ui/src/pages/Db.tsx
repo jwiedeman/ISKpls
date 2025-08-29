@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { getDbItems, type DbItem, getSettings } from '../api';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
@@ -7,7 +7,7 @@ import TypeName from '../TypeName';
 import StalenessBadge from '../StalenessBadge';
 import DataTable from '../DataTable';
 
-const columns: ColumnDef<DbItem>[] = [
+const baseColumns: ColumnDef<DbItem>[] = [
   {
     accessorKey: 'type_name',
     header: 'Item',
@@ -77,6 +77,28 @@ export default function Db() {
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const PAGE_SIZE = 25;
+
+  const columns = useMemo<ColumnDef<DbItem>[]>(() => {
+    if (!fees) return baseColumns;
+    const calcCol: ColumnDef<DbItem> = {
+      id: 'profit_calc',
+      header: 'Calc',
+      cell: ({ row }) => {
+        const bid = row.original.best_bid;
+        const ask = row.original.best_ask;
+        if (bid == null || ask == null) return '';
+        const buy = ask * (1 + fees.buy);
+        const sell = bid * (1 - fees.sell);
+        const pct = ((sell - buy) / buy) * 100;
+        return `(${bid.toLocaleString()}*(1-${(fees.sell * 100).toFixed(2)}%) - ${ask.toLocaleString()}*(1+${(fees.buy * 100).toFixed(2)}%)) / (${ask.toLocaleString()}*(1+${(fees.buy * 100).toFixed(2)}%)) = ${pct.toFixed(2)}%`;
+      },
+    };
+    return [
+      ...baseColumns.slice(0, 5),
+      calcCol,
+      ...baseColumns.slice(5),
+    ];
+  }, [fees]);
 
   async function refresh() {
     setLoading(true);
