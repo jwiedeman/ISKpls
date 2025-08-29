@@ -5,21 +5,28 @@ import {
   getCoverage,
   type Coverage,
   buildRecommendations,
+  getSchedulers,
+  updateSchedulers,
+  getStatus,
+  type StatusSnapshot,
 } from '../api';
-import { useEventStream } from '../useEventStream';
-import RunwayPanel from '../RunwayPanel';
-import { useRunwayVM } from '../runwayVM';
 import Spinner from '../Spinner';
 import ErrorBanner from '../ErrorBanner';
 import TypeName from '../TypeName';
 
+interface SchedulerCfg {
+  enabled: boolean;
+  interval: number;
+}
+
 export default function Dashboard() {
-  const { connected, events } = useEventStream();
-  const { inflightList, pending } = useRunwayVM(events);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [watchlist, setWatchlist] = useState<number[]>([]);
   const [coverage, setCoverage] = useState<Coverage | null>(null);
+  const [schedulers, setSchedulers] = useState<Record<string, SchedulerCfg>>({});
+  const [status, setStatus] = useState<StatusSnapshot | null>(null);
+
   async function refresh() {
     setLoading(true);
     try {
@@ -28,6 +35,10 @@ export default function Dashboard() {
       setWatchlist(ids);
       const cov = await getCoverage();
       setCoverage(cov);
+      const sched = await getSchedulers();
+      setSchedulers(sched);
+      const stat = await getStatus();
+      setStatus(stat);
       setError('');
     } catch (e: unknown) {
       if (e instanceof Error) {
@@ -40,10 +51,30 @@ export default function Dashboard() {
     }
   }
 
-  async function run(name: string) {
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  async function runNow(name: string) {
     setLoading(true);
     try {
       await runJob(name);
+      await refresh();
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError(String(e));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function toggleScheduler(name: string, enabled: boolean) {
+    setLoading(true);
+    try {
+      await updateSchedulers({ [name]: { enabled } });
       await refresh();
     } catch (e: unknown) {
       if (e instanceof Error) {
@@ -72,33 +103,71 @@ export default function Dashboard() {
     }
   }
 
-  useEffect(() => {
-    refresh();
-  }, []);
-
-  const recRunning = inflightList.some((j) => j.job === 'recommendations');
-  const recPending = pending.some((p) => p.job === 'recommendations');
-
   return (
     <div>
       <h2>Dashboard</h2>
       <ErrorBanner message={error} />
       {loading && <Spinner />}
-      <RunwayPanel connected={connected} events={events} />
+      {status && (
+        <div>
+          <p>
+            ESI remain: {status.esi?.remain ?? ''} reset: {status.esi?.reset ?? ''}
+          </p>
+          {status.counts && (
+            <p>
+              {Object.entries(status.counts).map(([k, v]) => (
+                <span key={k} style={{ marginRight: '0.5em' }}>
+                  {k}: {v}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+      )}
       {coverage && (
         <p>
           Types indexed: {coverage.types_indexed} · Books 10m: {coverage.books_10m} ·
           Median age: {coverage.median_age_s}s · 24h types: {coverage.distinct_types_24h}
         </p>
       )}
-      <button disabled={loading} onClick={() => run('scheduler_tick')}>Run Scheduler</button>
-      <button disabled={loading || recRunning || recPending} onClick={buildRecs}>Build Recommendations</button>
-      {recPending && <span style={{ marginLeft: '0.5em' }}>In queue</span>}
-
+      <h3>Schedulers</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Job</th>
+            <th>Interval (m)</th>
+            <th>Enabled</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(schedulers).map(([name, cfg]) => (
+            <tr key={name}>
+              <td>{name}</td>
+              <td>{cfg.interval}</td>
+              <td>{cfg.enabled ? 'Yes' : 'No'}</td>
+              <td>
+                <button disabled={loading} onClick={() => runNow(name)}>Run now</button>{' '}
+                <button
+                  disabled={loading}
+                  onClick={() => toggleScheduler(name, !cfg.enabled)}
+                >
+                  {cfg.enabled ? 'Pause' : 'Resume'}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <button disabled={loading} onClick={buildRecs} style={{ marginTop: '1em' }}>
+        Build Recommendations
+      </button>
       <h3>Watchlist</h3>
       <ul>
-        {watchlist.map(id => (
-          <li key={id}><TypeName id={id} /></li>
+        {watchlist.map((id) => (
+          <li key={id}>
+            <TypeName id={id} />
+          </li>
         ))}
       </ul>
     </div>

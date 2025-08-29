@@ -6,7 +6,6 @@ import Recommendations from './pages/Recommendations';
 import Orders from './pages/Orders';
 import Portfolio from './pages/Portfolio';
 import Snipes from './pages/Snipes';
-import Runway from './pages/Runway';
 import Login from './pages/Login';
 import Db from './pages/Db';
 import { getAuthStatus } from './api';
@@ -29,7 +28,6 @@ export default function App() {
         <Link to="/portfolio">Portfolio</Link> |
         <Link to="/snipes">Snipes</Link> |
         <Link to="/orders">Orders</Link> |
-        <Link to="/runway">Runway</Link> |
         <Link to="/settings">Settings</Link>
       </nav>
       <Routes>
@@ -39,7 +37,6 @@ export default function App() {
         <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/snipes" element={<Snipes />} />
         <Route path="/orders" element={<Orders />} />
-        <Route path="/runway" element={<Runway />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/login" element={<Login />} />
       </Routes>
