@@ -31,7 +31,14 @@ import json
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Preload the type ID to name mapping."""
+    """Initialize resources and ensure caches are warmed at startup.
+
+    This replaces the deprecated ``@app.on_event('startup')`` hook with
+    FastAPI's lifespan handler, ensuring the database schema exists,
+    the type ID → name cache is populated and the websocket heartbeat is
+    started before serving any requests.
+    """
+    init_db()
     refresh_type_name_cache()
     start_heartbeat()
     try:
@@ -50,16 +57,6 @@ app.add_middleware(
 
 app.include_router(status_router)
 app.include_router(ws_router)
-
-
-
-@app.on_event("startup")
-def _startup() -> None:
-    """Initialize the SQLite database and preload type names."""
-    # Ensure the database schema exists before serving requests.
-    init_db()
-    # Warm the type ID → name cache for nicer API responses.
-    refresh_type_name_cache()
 
 
 
