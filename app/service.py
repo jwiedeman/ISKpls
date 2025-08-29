@@ -22,7 +22,7 @@ from .snipes import find_snipes
 from .config import SNIPE_EPSILON, SNIPE_Z, SPREAD_BUFFER, STATION_ID, REC_FRESH_MS
 from .market import margin_after_fees
 from .ticks import tick
-from .pricing import compute_profit, deal_label, Fees
+from .pricing import compute_profit, deal_label, fees_from_settings
 from .status import status_router
 from .ws_bus import router as ws_router, start_heartbeat, stop_heartbeat
 from .util import utcnow, utcnow_dt, parse_utc
@@ -233,12 +233,7 @@ def _list_latest_items(
 ) -> dict[str, Any]:
     """Shared listing logic for latest price snapshots."""
     settings = get_settings()
-    fees = Fees(
-        buy_total=settings["BROKER_BUY"],
-        sell_total=settings["SALES_TAX"]
-        + settings["BROKER_SELL"]
-        + settings["RELIST_HAIRCUT"],
-    )
+    fees = fees_from_settings(settings)
     thresholds = settings["DEAL_THRESHOLDS"]
     with session() as con:
         where = ["lp.station_id = ?"]
@@ -394,12 +389,7 @@ def legacy_list_recommendations(
 ):
     """Return recommendations using legacy gating on freshness, MoM, and volume."""
     settings = get_settings()
-    fees = Fees(
-        buy_total=settings["BROKER_BUY"],
-        sell_total=settings["SALES_TAX"]
-        + settings["BROKER_SELL"]
-        + settings["RELIST_HAIRCUT"],
-    )
+    fees = fees_from_settings(settings)
     thresholds = settings["DEAL_THRESHOLDS"]
     if min_mom == 0.0:
         min_mom = settings["MOM_THRESHOLD"]

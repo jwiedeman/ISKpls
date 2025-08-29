@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Callable, Tuple, Optional, Dict
+from typing import Callable, Tuple, Optional, Dict, Mapping
 from .ticks import tick as default_tick
 
 @dataclass
@@ -8,6 +8,30 @@ class Fees:
     """Aggregate trading fees for buy and sell sides."""
     buy_total: float
     sell_total: float
+
+
+def default_fees() -> Fees:
+    """Return :class:`Fees` constructed from static config constants.
+
+    Centralizes knowledge of trading fee parameters to avoid repeating
+    ``config`` imports and manual arithmetic across modules.
+    """
+    from .config import BROKER_BUY, SALES_TAX, BROKER_SELL, RELIST_HAIRCUT
+
+    return Fees(
+        buy_total=BROKER_BUY,
+        sell_total=SALES_TAX + BROKER_SELL + RELIST_HAIRCUT,
+    )
+
+
+def fees_from_settings(settings: Mapping[str, float]) -> Fees:
+    """Build a :class:`Fees` instance from a settings mapping."""
+    return Fees(
+        buy_total=settings["BROKER_BUY"],
+        sell_total=settings["SALES_TAX"]
+        + settings["BROKER_SELL"]
+        + settings["RELIST_HAIRCUT"],
+    )
 
 
 def compute_profit(
