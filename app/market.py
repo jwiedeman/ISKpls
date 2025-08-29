@@ -5,14 +5,9 @@ from .config import (
     STATION_ID,
     REGION_ID,
     DATASOURCE,
-    SALES_TAX,
-    BROKER_SELL,
-    BROKER_BUY,
-    RELIST_HAIRCUT,
     MIN_DAYS_TRADED,
-    VENUE,
 )
-from .pricing import compute_profit, Fees
+from .pricing import compute_profit, default_fees
 
 
 def station_region_id(station_id):
@@ -57,10 +52,7 @@ def margin_after_fees(buy_px, sell_px):
     fee logic. ``buy_px`` represents the price paid while ``sell_px`` is the
     price received.
     """
-    fees = Fees(
-        buy_total=BROKER_BUY,
-        sell_total=SALES_TAX + BROKER_SELL + RELIST_HAIRCUT,
-    )
+    fees = default_fees()
     profit, _ = compute_profit(
         best_bid=sell_px,
         best_ask=buy_px,
