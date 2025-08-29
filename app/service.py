@@ -23,7 +23,9 @@ from .config import SNIPE_EPSILON, SNIPE_Z, SPREAD_BUFFER, STATION_ID, REC_FRESH
 from .market import margin_after_fees
 from .ticks import tick
 from .pricing import compute_profit, deal_label, fees_from_settings
-from .status import status_router
+from datetime import timedelta
+from .jobs import JOB_QUEUE
+from .status import status_router, STATUS
 from .ws_bus import router as ws_router, start_heartbeat, stop_heartbeat
 from .util import utcnow, utcnow_dt, parse_utc
 from .emit import pipeline_profit_updated
@@ -100,8 +102,28 @@ def write_settings(settings: dict):
 
 @app.get("/schedulers")
 def read_schedulers():
-    """Return scheduler job configuration."""
-    return get_scheduler_settings()
+    """Return scheduler job configuration and runtime status."""
+
+    cfg = get_scheduler_settings()
+    with session() as con:
+        for name, meta in cfg.items():
+            row = con.execute(
+                "SELECT MAX(ts_utc) FROM jobs_history WHERE name=?",
+                (name,),
+            ).fetchone()
+            last = row[0] if row else None
+            meta["last_run_at"] = last
+            if last:
+                next_dt = parse_utc(last) + timedelta(minutes=meta["interval"])
+                meta["next_run_at"] = next_dt.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                meta["next_run_at"] = None
+            meta["running"] = any(
+                j.get("job") == name for j in STATUS.get("inflight", [])
+            )
+            meta["queued"] = sum(1 for j in JOB_QUEUE if j == name)
+            meta["concurrency"] = 1
+    return cfg
 
 
 @app.put("/schedulers")
