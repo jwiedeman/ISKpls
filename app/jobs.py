@@ -12,6 +12,7 @@ headers exposed via :mod:`app.esi`.
 from dataclasses import dataclass, field
 import heapq
 import json
+import logging
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -30,6 +31,8 @@ JOB_QUEUE: List[str] = []
 _PRIORITY = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
 _queue: List[Tuple[int, int, "Job"]] = []
 _counter = 0
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -139,7 +142,10 @@ def worker(limiter: RateLimiter) -> None:
 
     while True:
         if _queue and limiter.allow():
-            run_next_job()
+            try:
+                run_next_job()
+            except Exception:  # pragma: no cover - logged and ignored
+                logger.exception("job failed")
         else:
             time.sleep(limiter.backoff())
 
