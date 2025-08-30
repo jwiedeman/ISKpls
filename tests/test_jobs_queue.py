@@ -30,3 +30,36 @@ def test_job_queue_and_rate_limiter(monkeypatch):
     assert limiter.allow() is False
     assert jobs.RateLimiter().backoff() >= 20
 
+
+def test_worker_continues_after_job_error(monkeypatch):
+    calls = []
+    jobs.clear_queue()
+
+    def bad():
+        raise RuntimeError("boom")
+
+    def good():
+        calls.append("ok")
+
+    jobs.enqueue("bad", bad)
+    jobs.enqueue("good", good)
+
+    monkeypatch.setattr(esi, "ERROR_LIMIT_REMAIN", 100)
+    limiter = jobs.RateLimiter()
+
+    sleep_calls = {"n": 0}
+
+    def fake_sleep(_):
+        sleep_calls["n"] += 1
+        if sleep_calls["n"] > 5:
+            raise SystemExit()
+
+    monkeypatch.setattr(jobs.time, "sleep", fake_sleep)
+
+    try:
+        jobs.worker(limiter)
+    except SystemExit:
+        pass
+
+    assert calls == ["ok"]
+
